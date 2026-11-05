@@ -269,7 +269,7 @@
            <item>
             <widget class="QDoubleSpinBox" name="spinMinSize">
              <property name="toolTip">
-              <string>Applies only to articles whose feed tells the size. Other articles aren't filtered by size.</string>
+              <string>Articles whose feed doesn't tell the size are filtered out.</string>
              </property>
              <property name="specialValueText">
               <string>No limit</string>
@@ -292,7 +292,7 @@
            <item>
             <widget class="QDoubleSpinBox" name="spinMaxSize">
              <property name="toolTip">
-              <string>Applies only to articles whose feed tells the size. Other articles aren't filtered by size.</string>
+              <string>Articles whose feed doesn't tell the size aren't filtered out.</string>
              </property>
              <property name="specialValueText">
               <string>No limit</string>

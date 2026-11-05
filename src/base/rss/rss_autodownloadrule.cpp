@@ -107,9 +107,9 @@ namespace
     // The text must contain exactly one, since otherwise there is no telling which one is the torrent size.
     std::optional<qint64> sizeFromText(const QString &text)
     {
-        // Captures: number with thousands separators, or plain number, then the unit prefix and its "i"
+        // Captures: number with thousands separators, or plain number, then the unit prefix
         // The spacing can be any Unicode space or an HTML one. A range ("1-2 GiB") and a rate ("10 MB/s") aren't sizes.
-        static const QRegularExpression sizeRegex {uR"((?<![\w.,])(?<!\d[-\x{2013}])(?:(\d{1,3}(?:,\d{3})+(?:\.\d+)?)|(\d+(?:[.,]\d+)?))(?:[\s\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;)*([KMGTP])(i?)B\b(?!/s(?:ec)?\b))"_s
+        static const QRegularExpression sizeRegex {uR"((?<![\w.,])(?<!\d[-\x{2013}])(?:(\d{1,3}(?:,\d{3})+(?:\.\d+)?)|(\d+(?:[.,]\d+)?))(?:[\s\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;)*([KMGTP])i?B\b(?!/s(?:ec)?\b))"_s
             , QRegularExpression::CaseInsensitiveOption};
 
         QRegularExpressionMatchIterator matches = sizeRegex.globalMatch(text);
@@ -124,8 +124,8 @@ namespace
             ? match.captured(1).remove(u',').toDouble()
             : match.captured(2).replace(u',', u'.').toDouble();
         const int exponent = 1 + QStringView(u"KMGTP").indexOf(match.capturedView(3).at(0).toUpper());
-        const double base = match.capturedView(4).isEmpty() ? 1000 : 1024;
-        const double size = number * std::pow(base, exponent);
+        // All units are 1024-based, as for search results, whether or not they're written with an "i"
+        const double size = number * std::pow(1024, exponent);
         if (size >= static_cast<double>(std::numeric_limits<qint64>::max()))
             return std::nullopt;
 
@@ -476,14 +476,12 @@ bool AutoDownloadRule::matchesSizeLimits(const QVariantHash &articleData) const
     if ((minSize() <= 0) && (maxSize() <= 0))
         return true;
 
-    const std::optional<qint64> size = articleSize(articleData);
-    if (!size)
-        return true; // The limits only apply when the feed tells the size
-
-    if ((minSize() > 0) && (*size < minSize()))
+    // An unknown size passes a maximum and fails a minimum, as in the search size filter
+    const qint64 size = articleSize(articleData).value_or(-1);
+    if ((minSize() > 0) && (size < minSize()))
         return false;
 
-    return (maxSize() <= 0) || (*size <= maxSize());
+    return (maxSize() <= 0) || (size <= maxSize());
 }
 
 bool AutoDownloadRule::matches(const QVariantHash &articleData) const

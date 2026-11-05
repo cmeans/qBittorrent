@@ -98,10 +98,12 @@ private slots:
         QTest::newRow("min is inclusive") << TWO_GIB << qint64(0) << u"2 GiB"_s << true;
         QTest::newRow("just over max") << qint64(0) << TWO_GIB << u"2.01 GiB"_s << false;
 
-        QTest::newRow("GB is 1000-based") << qint64(0) << qint64(2000000000) << u"2 GB"_s << true;
+        QTest::newRow("GB is 1024-based, at limit") << qint64(0) << TWO_GIB << u"2 GB"_s << true;
+        QTest::newRow("GB is 1024-based, over limit") << qint64(0) << (TWO_GIB - 1) << u"2 GB"_s << false;
+        QTest::newRow("KB is 1024-based") << qint64(0) << qint64(2047) << u"2 KB"_s << false;
         QTest::newRow("GiB is 1024-based") << qint64(0) << qint64(2000000000) << u"2 GiB"_s << false;
         QTest::newRow("MiB unit") << qint64(0) << (100 * ONE_MIB) << u"101 MiB"_s << false;
-        QTest::newRow("units ignore case") << qint64(0) << qint64(700000000) << u"701 mb"_s << false;
+        QTest::newRow("units ignore case") << qint64(0) << (700 * ONE_MIB) << u"701 mb"_s << false;
         QTest::newRow("TiB unit") << qint64(0) << FIVE_GIB << u"1 TiB"_s << false;
 
         QTest::newRow("thousands separator, at limit") << qint64(0) << ONE_GIB << u"1,024 MiB"_s << true;
@@ -126,7 +128,14 @@ private slots:
         QTest::newRow("hyphen after word") << qint64(0) << ONE_GIB << u"HD-1.7 GiB"_s << false;
         QTest::newRow("spaced hyphen after number") << qint64(0) << ONE_GIB << u"Season 2 - 5 GiB"_s << false;
 
-        // The size is unknown in these, so the limit (which they would otherwise fail) doesn't apply
+        // An unknown size passes a maximum and fails a minimum, as in the search size filter
+        QTest::newRow("unknown size fails min") << qint64(1) << qint64(0) << u"Movies / SD"_s << false;
+        QTest::newRow("unknown size fails min and max") << qint64(1) << TWO_GIB << u"Movies / SD"_s << false;
+        QTest::newRow("empty description fails min") << qint64(1) << qint64(0) << QString() << false;
+        QTest::newRow("several sizes fail min") << qint64(1) << qint64(0) << u"1 GiB of 5 GiB"_s << false;
+        QTest::newRow("no limits accept unknown size") << qint64(0) << qint64(0) << u"Movies / SD"_s << true;
+
+        // The size is unknown in these, so the maximum (which they would otherwise fail) doesn't apply
         QTest::newRow("empty description") << qint64(0) << qint64(1) << QString() << true;
         QTest::newRow("no size in description") << qint64(0) << qint64(1) << u"Movies / SD"_s << true;
         QTest::newRow("several sizes in description") << qint64(0) << qint64(1) << u"1 GiB of 5 GiB"_s << true;
