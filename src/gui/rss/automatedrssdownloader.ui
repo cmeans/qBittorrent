@@ -258,6 +258,69 @@
           </layout>
          </item>
          <item>
+          <layout class="QHBoxLayout" name="sizeLimitsLayout">
+           <item>
+            <widget class="QLabel" name="lblMinSize">
+             <property name="text">
+              <string>Minimum Size:</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QSpinBox" name="spinMinSize">
+             <property name="toolTip">
+              <string>Applies only to articles whose feed tells the size. Other articles aren't filtered by size.</string>
+             </property>
+             <property name="specialValueText">
+              <string>No limit</string>
+             </property>
+             <property name="suffix">
+              <string> MiB</string>
+             </property>
+             <property name="maximum">
+              <number>2147483647</number>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QLabel" name="lblMaxSize">
+             <property name="text">
+              <string>Maximum Size:</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QSpinBox" name="spinMaxSize">
+             <property name="toolTip">
+              <string>Applies only to articles whose feed tells the size. Other articles aren't filtered by size.</string>
+             </property>
+             <property name="specialValueText">
+              <string>No limit</string>
+             </property>
+             <property name="suffix">
+              <string> MiB</string>
+             </property>
+             <property name="maximum">
+              <number>2147483647</number>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <spacer name="sizeLimitsSpacer">
+             <property name="orientation">
+              <enum>Qt::Orientation::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+          </layout>
+         </item>
+         <item>
           <widget class="QCheckBox" name="checkSmart">
            <property name="toolTip">
             <string>Smart Episode Filter will check the episode number to prevent downloading of duplicates.

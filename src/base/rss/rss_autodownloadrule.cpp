@@ -30,6 +30,9 @@
 #include "rss_autodownloadrule.h"
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
+#include <optional>
 
 #include <QDebug>
 #include <QHash>
@@ -99,6 +102,56 @@ namespace
             return {};
         return Utils::String::fromEnum(*contentLayout);
     }
+
+    // Reads a size written for humans, such as "1.7 GiB" or "1,024 MiB".
+    // The text must contain exactly one, since otherwise there is no telling which one is the torrent size.
+    std::optional<qint64> sizeFromText(const QString &text)
+    {
+        // Captures: number with thousands separators, or plain number, then the unit prefix and its "i"
+        static const QRegularExpression sizeRegex {uR"((?<![\w.,])(?:(\d{1,3}(?:,\d{3})+(?:\.\d+)?)|(\d+(?:[.,]\d+)?))\s*([KMGTP])(i?)B\b)"_s
+            , QRegularExpression::CaseInsensitiveOption};
+
+        QRegularExpressionMatchIterator matches = sizeRegex.globalMatch(text);
+        if (!matches.hasNext())
+            return std::nullopt;
+
+        const QRegularExpressionMatch match = matches.next();
+        if (matches.hasNext())
+            return std::nullopt;
+
+        const double number = match.hasCaptured(1)
+            ? match.captured(1).remove(u',').toDouble()
+            : match.captured(2).replace(u',', u'.').toDouble();
+        const int exponent = 1 + QStringView(u"KMGTP").indexOf(match.capturedView(3).at(0).toUpper());
+        const double base = match.capturedView(4).isEmpty() ? 1000 : 1024;
+        const double size = number * std::pow(base, exponent);
+        if (size >= static_cast<double>(std::numeric_limits<qint64>::max()))
+            return std::nullopt;
+
+        return std::llround(size);
+    }
+
+    std::optional<qint64> sizeFromElement(const QString &text)
+    {
+        bool isNumber = false;
+        const qint64 bytes = text.trimmed().toLongLong(&isNumber);
+        if (isNumber)
+            return (bytes > 0) ? std::optional(bytes) : std::nullopt;
+
+        return sizeFromText(text);
+    }
+
+    std::optional<qint64> articleSize(const QVariantHash &articleData)
+    {
+        if (const qint64 length = articleData.value(RSS::Article::KeyTorrentSize).toLongLong(); length > 0)
+            return length;
+
+        // Feeds can provide this as an element of their own, which the parser keeps under its name
+        if (const std::optional<qint64> size = sizeFromElement(articleData.value(u"size"_s).toString()))
+            return size;
+
+        return sizeFromText(articleData.value(RSS::Article::KeyDescription).toString());
+    }
 }
 
 const QString S_NAME = u"name"_s;
@@ -112,6 +165,8 @@ const QString S_AFFECTED_FEEDS = u"affectedFeeds"_s;
 const QString S_LAST_MATCH = u"lastMatch"_s;
 const QString S_IGNORE_DAYS = u"ignoreDays"_s;
 const QString S_SMART_FILTER = u"smartFilter"_s;
+const QString S_MIN_SIZE = u"minSize"_s;
+const QString S_MAX_SIZE = u"maxSize"_s;
 const QString S_PREVIOUSLY_MATCHED = u"previouslyMatchedEpisodes"_s;
 
 const QString S_SAVE_PATH = u"savePath"_s;
@@ -136,6 +191,8 @@ namespace RSS
         bool useRegex = false;
         int ignoreDays = 0;
         QDateTime lastMatch;
+        qint64 minSize = 0;
+        qint64 maxSize = 0;
 
         BitTorrent::AddTorrentParams addTorrentParams;
 
@@ -158,6 +215,8 @@ namespace RSS
                     && (left.ignoreDays == right.ignoreDays)
                     && (left.lastMatch == right.lastMatch)
                     && (left.smartFilter == right.smartFilter)
+                    && (left.minSize == right.minSize)
+                    && (left.maxSize == right.maxSize)
                     && (left.addTorrentParams == right.addTorrentParams);
         }
     };
@@ -411,6 +470,21 @@ bool AutoDownloadRule::matchesSmartEpisodeFilter(const QString &articleTitle) co
     return true;
 }
 
+bool AutoDownloadRule::matchesSizeLimits(const QVariantHash &articleData) const
+{
+    if ((minSize() <= 0) && (maxSize() <= 0))
+        return true;
+
+    const std::optional<qint64> size = articleSize(articleData);
+    if (!size)
+        return true; // The limits only apply when the feed tells the size
+
+    if ((minSize() > 0) && (*size < minSize()))
+        return false;
+
+    return (maxSize() <= 0) || (*size <= maxSize());
+}
+
 bool AutoDownloadRule::matches(const QVariantHash &articleData) const
 {
     const QDateTime articleDate {articleData[Article::KeyDate].toDateTime()};
@@ -424,6 +498,8 @@ bool AutoDownloadRule::matches(const QVariantHash &articleData) const
     if (!matchesMustContainExpression(articleTitle))
         return false;
     if (!matchesMustNotContainExpression(articleTitle))
+        return false;
+    if (!matchesSizeLimits(articleData))
         return false;
     if (!matchesEpisodeFilterExpression(articleTitle))
         return false;
@@ -473,6 +549,8 @@ QJsonObject AutoDownloadRule::toJsonObject() const
         , {S_LAST_MATCH, lastMatch().toString(Qt::RFC2822Date)}
         , {S_IGNORE_DAYS, ignoreDays()}
         , {S_SMART_FILTER, useSmartFilter()}
+        , {S_MIN_SIZE, minSize()}
+        , {S_MAX_SIZE, maxSize()}
         , {S_PREVIOUSLY_MATCHED, QJsonArray::fromStringList(previouslyMatchedEpisodes())}
 
         // TODO: The following code is deprecated. Replace with the commented one after several releases in 4.6.x.
@@ -501,6 +579,8 @@ AutoDownloadRule AutoDownloadRule::fromJsonObject(const QJsonObject &jsonObj, co
     rule.setLastMatch(QDateTime::fromString(jsonObj.value(S_LAST_MATCH).toString(), Qt::RFC2822Date));
     rule.setIgnoreDays(jsonObj.value(S_IGNORE_DAYS).toInt());
     rule.setUseSmartFilter(jsonObj.value(S_SMART_FILTER).toBool(false));
+    rule.setMinSize(jsonObj.value(S_MIN_SIZE).toInteger(0));
+    rule.setMaxSize(jsonObj.value(S_MAX_SIZE).toInteger(0));
 
     const QJsonValue feedsVal = jsonObj.value(S_AFFECTED_FEEDS);
     QStringList feedURLs;
@@ -755,4 +835,24 @@ void AutoDownloadRule::setEpisodeFilter(const QString &e)
 {
     m_dataPtr->episodeFilter = e;
     m_dataPtr->cachedRegexes.clear();
+}
+
+qint64 AutoDownloadRule::minSize() const
+{
+    return m_dataPtr->minSize;
+}
+
+void AutoDownloadRule::setMinSize(const qint64 bytes)
+{
+    m_dataPtr->minSize = std::max<qint64>(bytes, 0);
+}
+
+qint64 AutoDownloadRule::maxSize() const
+{
+    return m_dataPtr->maxSize;
+}
+
+void AutoDownloadRule::setMaxSize(const qint64 bytes)
+{
+    m_dataPtr->maxSize = std::max<qint64>(bytes, 0);
 }

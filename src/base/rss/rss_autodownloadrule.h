@@ -80,6 +80,10 @@ namespace RSS
         void setUseSmartFilter(bool enabled);
         QString episodeFilter() const;
         void setEpisodeFilter(const QString &e);
+        qint64 minSize() const;
+        void setMinSize(qint64 bytes);
+        qint64 maxSize() const;
+        void setMaxSize(qint64 bytes);
 
         QStringList previouslyMatchedEpisodes() const;
         void setPreviouslyMatchedEpisodes(const QStringList &previouslyMatchedEpisodes);
@@ -103,6 +107,7 @@ namespace RSS
         bool matchesMustNotContainExpression(const QString &articleTitle) const;
         bool matchesEpisodeFilterExpression(const QString &articleTitle) const;
         bool matchesSmartEpisodeFilter(const QString &articleTitle) const;
+        bool matchesSizeLimits(const QVariantHash &articleData) const;
         bool matchesExpression(const QString &articleTitle, const QString &expression) const;
         QRegularExpression cachedRegex(const QString &expression, bool isRegex = true) const;
 

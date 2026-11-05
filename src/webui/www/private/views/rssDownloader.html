@@ -202,6 +202,22 @@
                             <input disabled type="text" id="episodeFilterText" class="fullWidth" autocorrect="off" autocapitalize="none">
                         </td>
                     </tr>
+                    <tr title="QBT_TR(Applies only to articles whose feed tells the size. Other articles aren't filtered by size.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
+                        <td>
+                            <label for="minSizeValue" class="noWrap">QBT_TR(Minimum Size:)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
+                        </td>
+                        <td class="fullWidth">
+                            <input disabled type="number" id="minSizeValue" min="0" value="0"> QBT_TR(MiB (0 for no limit))QBT_TR[CONTEXT=AutomatedRssDownloader]
+                        </td>
+                    </tr>
+                    <tr title="QBT_TR(Applies only to articles whose feed tells the size. Other articles aren't filtered by size.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
+                        <td>
+                            <label for="maxSizeValue" class="noWrap">QBT_TR(Maximum Size:)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
+                        </td>
+                        <td class="fullWidth">
+                            <input disabled type="number" id="maxSizeValue" min="0" value="0"> QBT_TR(MiB (0 for no limit))QBT_TR[CONTEXT=AutomatedRssDownloader]
+                        </td>
+                    </tr>
                 </tbody>
             </table>
             <div class="formRow" title="QBT_TR(Smart Episode Filter will check the episode number to prevent downloading of duplicates.
@@ -657,6 +673,8 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
             });
         };
 
+        const bytesPerMiB = 1048576;
+
         const saveSettings = () => {
             const lastSelectedRow = rssDownloaderRulesTable.selectedRows.at(-1);
             const rule = rssDownloaderRulesTable.getRow(lastSelectedRow).full_data.name;
@@ -666,6 +684,8 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
             rulesList[rule].mustNotContain = document.getElementById("mustNotContainText").value;
             rulesList[rule].episodeFilter = document.getElementById("episodeFilterText").value;
             rulesList[rule].smartFilter = document.getElementById("useSmartFilter").checked;
+            rulesList[rule].minSize = Math.round(Number(document.getElementById("minSizeValue").value) * bytesPerMiB);
+            rulesList[rule].maxSize = Math.round(Number(document.getElementById("maxSizeValue").value) * bytesPerMiB);
             rulesList[rule].ignoreDays = Number(document.getElementById("ignoreDaysValue").value);
             rulesList[rule].affectedFeeds = [...rssDownloaderFeedSelectionTable.getRowValues()]
                 .filter((row) => row.full_data.checked)
@@ -769,6 +789,8 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
                 document.getElementById("mustNotContainText").disabled = true;
                 document.getElementById("episodeFilterText").disabled = true;
                 document.getElementById("useSmartFilter").disabled = true;
+                document.getElementById("minSizeValue").disabled = true;
+                document.getElementById("maxSizeValue").disabled = true;
                 document.getElementById("assignCategoryCombobox").disabled = true;
                 document.getElementById("ruleAddTags").disabled = true;
                 document.getElementById("savetoDifferentDir").disabled = true;
@@ -783,6 +805,8 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
                 document.getElementById("mustNotContainText").value = "";
                 document.getElementById("episodeFilterText").value = "";
                 document.getElementById("useSmartFilter").checked = false;
+                document.getElementById("minSizeValue").value = 0;
+                document.getElementById("maxSizeValue").value = 0;
                 document.getElementById("assignCategoryCombobox").value = "default";
                 document.getElementById("ruleAddTags").value = "";
                 document.getElementById("savetoDifferentDir").checked = false;
@@ -806,6 +830,8 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
                 document.getElementById("mustNotContainText").disabled = false;
                 document.getElementById("episodeFilterText").disabled = false;
                 document.getElementById("useSmartFilter").disabled = false;
+                document.getElementById("minSizeValue").disabled = false;
+                document.getElementById("maxSizeValue").disabled = false;
                 document.getElementById("assignCategoryCombobox").disabled = false;
                 document.getElementById("ruleAddTags").disabled = false;
                 document.getElementById("savetoDifferentDir").disabled = false;
@@ -819,6 +845,8 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
                 document.getElementById("mustNotContainText").value = rulesList[ruleName].mustNotContain;
                 document.getElementById("episodeFilterText").value = rulesList[ruleName].episodeFilter;
                 document.getElementById("useSmartFilter").checked = rulesList[ruleName].smartFilter;
+                document.getElementById("minSizeValue").value = rulesList[ruleName].minSize / bytesPerMiB;
+                document.getElementById("maxSizeValue").value = rulesList[ruleName].maxSize / bytesPerMiB;
 
                 document.getElementById("assignCategoryCombobox").value = rulesList[ruleName].torrentParams.category ? rulesList[ruleName].torrentParams.category : "default";
                 document.getElementById("ruleAddTags").value = rulesList[ruleName].torrentParams.tags.join(",");

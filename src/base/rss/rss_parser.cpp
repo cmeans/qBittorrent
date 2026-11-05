@@ -604,6 +604,7 @@ void RSS::Private::Parser::parseRssArticle(QXmlStreamReader &xml)
 {
     QVariantHash article;
     QString altTorrentUrl;
+    qint64 altTorrentSize = 0;
 
     while (!xml.atEnd())
     {
@@ -621,10 +622,18 @@ void RSS::Private::Parser::parseRssArticle(QXmlStreamReader &xml)
             }
             else if (name == u"enclosure")
             {
+                const qint64 length = xml.attributes().value(u"length"_s).toLongLong();
                 if (xml.attributes().value(u"type"_s) == u"application/x-bittorrent")
+                {
                     article[Article::KeyTorrentURL] = xml.attributes().value(u"url"_s).toString();
+                    if (length > 0)
+                        article[Article::KeyTorrentSize] = length;
+                }
                 else if (xml.attributes().value(u"type"_s).isEmpty())
+                {
                     altTorrentUrl = xml.attributes().value(u"url"_s).toString();
+                    altTorrentSize = length;
+                }
             }
             else if (name == u"link")
             {
@@ -658,7 +667,11 @@ void RSS::Private::Parser::parseRssArticle(QXmlStreamReader &xml)
     }
 
     if (article[Article::KeyTorrentURL].toString().isEmpty())
+    {
         article[Article::KeyTorrentURL] = altTorrentUrl;
+        if (altTorrentSize > 0)
+            article[Article::KeyTorrentSize] = altTorrentSize;
+    }
 
     addArticle(article);
 }

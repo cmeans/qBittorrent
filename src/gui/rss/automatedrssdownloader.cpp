@@ -60,6 +60,7 @@
 
 const QString EXT_JSON = u".json"_s;
 const QString EXT_LEGACY = u".rssrules"_s;
+const qint64 BYTES_PER_MIB = 1048576;
 
 AutomatedRssDownloader::AutomatedRssDownloader(QWidget *parent)
     : QDialog(parent)
@@ -148,6 +149,10 @@ AutomatedRssDownloader::AutomatedRssDownloader(QWidget *parent)
     connect(m_ui->checkSmart, &QCheckBox::stateChanged, this, &AutomatedRssDownloader::handleRuleDefinitionChanged);
 #endif
     connect(m_ui->spinIgnorePeriod, qOverload<int>(&QSpinBox::valueChanged)
+            , this, &AutomatedRssDownloader::handleRuleDefinitionChanged);
+    connect(m_ui->spinMinSize, qOverload<int>(&QSpinBox::valueChanged)
+            , this, &AutomatedRssDownloader::handleRuleDefinitionChanged);
+    connect(m_ui->spinMaxSize, qOverload<int>(&QSpinBox::valueChanged)
             , this, &AutomatedRssDownloader::handleRuleDefinitionChanged);
 
     connect(m_ui->listFeeds, &QListWidget::itemChanged, this, &AutomatedRssDownloader::handleFeedCheckStateChange);
@@ -318,6 +323,12 @@ void AutomatedRssDownloader::updateRuleDefinitionBox()
         m_ui->checkSmart->blockSignals(true);
         m_ui->checkSmart->setChecked(m_currentRule.useSmartFilter());
         m_ui->checkSmart->blockSignals(false);
+        m_ui->spinMinSize->blockSignals(true);
+        m_ui->spinMinSize->setValue(static_cast<int>(m_currentRule.minSize() / BYTES_PER_MIB));
+        m_ui->spinMinSize->blockSignals(false);
+        m_ui->spinMaxSize->blockSignals(true);
+        m_ui->spinMaxSize->setValue(static_cast<int>(m_currentRule.maxSize() / BYTES_PER_MIB));
+        m_ui->spinMaxSize->blockSignals(false);
         m_ui->spinIgnorePeriod->setValue(m_currentRule.ignoreDays());
         QDateTime dateTime = m_currentRule.lastMatch();
         QString lMatch;
@@ -353,6 +364,8 @@ void AutomatedRssDownloader::clearRuleDefinitionBox()
     m_ui->lineEFilter->clear();
     m_ui->checkRegex->setChecked(false);
     m_ui->checkSmart->setChecked(false);
+    m_ui->spinMinSize->setValue(0);
+    m_ui->spinMaxSize->setValue(0);
     m_ui->spinIgnorePeriod->setValue(0);
     updateFieldsToolTips(m_ui->checkRegex->isChecked());
     updateMustLineValidity();
@@ -373,6 +386,8 @@ void AutomatedRssDownloader::updateEditedRule()
     m_currentRule.setMustNotContain(m_ui->lineNotContains->text());
     m_currentRule.setEpisodeFilter(m_ui->lineEFilter->text());
     m_currentRule.setIgnoreDays(m_ui->spinIgnorePeriod->value());
+    m_currentRule.setMinSize(m_ui->spinMinSize->value() * BYTES_PER_MIB);
+    m_currentRule.setMaxSize(m_ui->spinMaxSize->value() * BYTES_PER_MIB);
 
     m_currentRule.setAddTorrentParams(m_addTorrentParamsWidget->addTorrentParams());
 }
