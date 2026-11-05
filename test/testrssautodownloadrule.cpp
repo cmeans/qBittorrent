@@ -112,12 +112,30 @@ private slots:
         QTest::newRow("thousands and decimals, over limit") << qint64(0) << (1024 * ONE_MIB) << u"1,024.5 MiB"_s << false;
         QTest::newRow("decimal comma after four digits") << qint64(0) << (1025 * ONE_MIB) << u"1024,500 MiB"_s << true;
 
+        // Feeds can separate the number and the unit with something other than a plain space
+        QTest::newRow("no-break space before unit") << qint64(0) << ONE_GIB << u"1.71 GiB"_s << false;
+        QTest::newRow("thin space before unit") << qint64(0) << ONE_GIB << u"1.71 GiB"_s << false;
+        QTest::newRow("HTML no-break space before unit") << qint64(0) << ONE_GIB << u"Size: 1.71&nbsp;GiB"_s << false;
+        QTest::newRow("HTML numeric no-break space before unit") << qint64(0) << ONE_GIB << u"Size: 1.71&#160;GiB"_s << false;
+        QTest::newRow("HTML hexadecimal no-break space before unit") << qint64(0) << ONE_GIB << u"Size: 1.71&#xA0;GiB"_s << false;
+        QTest::newRow("HTML thin space before unit") << qint64(0) << ONE_GIB << u"Size: 1.71&thinsp;GiB"_s << false;
+        QTest::newRow("HTML numeric thin space before unit") << qint64(0) << ONE_GIB << u"Size: 1.71&#8201;GiB"_s << false;
+
+        // Similar to the unreadable text below, but these are sizes and must keep working
+        QTest::newRow("slash right after unit") << qint64(0) << ONE_GIB << u"Movies / 1.7 GiB/SD"_s << false;
+        QTest::newRow("hyphen after word") << qint64(0) << ONE_GIB << u"HD-1.7 GiB"_s << false;
+        QTest::newRow("spaced hyphen after number") << qint64(0) << ONE_GIB << u"Season 2 - 5 GiB"_s << false;
+
         // The size is unknown in these, so the limit (which they would otherwise fail) doesn't apply
         QTest::newRow("empty description") << qint64(0) << qint64(1) << QString() << true;
         QTest::newRow("no size in description") << qint64(0) << qint64(1) << u"Movies / SD"_s << true;
         QTest::newRow("several sizes in description") << qint64(0) << qint64(1) << u"1 GiB of 5 GiB"_s << true;
         QTest::newRow("a bare B is not a size") << qint64(0) << qint64(1) << u"Series 4 B"_s << true;
         QTest::newRow("number without unit") << qint64(0) << qint64(1) << u"Movies / 1080"_s << true;
+        QTest::newRow("size range with hyphen") << qint64(0) << qint64(1) << u"1-2 GiB"_s << true;
+        QTest::newRow("size range with en dash") << qint64(0) << qint64(1) << u"1–2 GiB"_s << true;
+        QTest::newRow("transfer rate") << qint64(0) << qint64(1) << u"Speed 10 MB/s"_s << true;
+        QTest::newRow("transfer rate with sec") << qint64(0) << qint64(1) << u"Speed 10 MiB/sec"_s << true;
     }
 
     void testMatchesSizeFromDescription() const

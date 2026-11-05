@@ -108,7 +108,8 @@ namespace
     std::optional<qint64> sizeFromText(const QString &text)
     {
         // Captures: number with thousands separators, or plain number, then the unit prefix and its "i"
-        static const QRegularExpression sizeRegex {uR"((?<![\w.,])(?:(\d{1,3}(?:,\d{3})+(?:\.\d+)?)|(\d+(?:[.,]\d+)?))\s*([KMGTP])(i?)B\b)"_s
+        // The spacing can be any Unicode space or an HTML one. A range ("1-2 GiB") and a rate ("10 MB/s") aren't sizes.
+        static const QRegularExpression sizeRegex {uR"((?<![\w.,])(?<!\d[-\x{2013}])(?:(\d{1,3}(?:,\d{3})+(?:\.\d+)?)|(\d+(?:[.,]\d+)?))(?:[\s\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;)*([KMGTP])(i?)B\b(?!/s(?:ec)?\b))"_s
             , QRegularExpression::CaseInsensitiveOption};
 
         QRegularExpressionMatchIterator matches = sizeRegex.globalMatch(text);
