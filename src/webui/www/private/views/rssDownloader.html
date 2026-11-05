@@ -742,6 +742,10 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
         };
 
         const saveSettings = () => {
+            // Check against the selected units, since 8 EiB would be stored as no limit
+            updateSizeMaximum("min");
+            updateSizeMaximum("max");
+
             // An invalid number input reads as empty, which would silently remove the limit
             if (!document.getElementById("minSizeValue").validity.valid) {
                 alert("QBT_TR(Minimum size must be between 0 and 1000 with at most 2 decimal places. The EiB maximum is 7.99.)QBT_TR[CONTEXT=AutomatedRssDownloader]");
