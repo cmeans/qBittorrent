@@ -54,6 +54,11 @@
         width: 100%;
     }
 
+    #minSizeValue,
+    #maxSizeValue {
+        width: 9em;
+    }
+
     .articleTableFeed td {
         font-weight: bold;
     }
@@ -206,16 +211,16 @@
                         <td>
                             <label for="minSizeValue" class="noWrap">QBT_TR(Minimum Size:)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
                         </td>
-                        <td class="fullWidth">
-                            <input disabled type="number" id="minSizeValue" min="0" value="0"> QBT_TR(MiB (0 for no limit))QBT_TR[CONTEXT=AutomatedRssDownloader]
+                        <td class="fullWidth noWrap">
+                            <input disabled type="number" id="minSizeValue" min="0" max="8796093022207" step="any" value="0"> QBT_TR(MiB (0 for no limit))QBT_TR[CONTEXT=AutomatedRssDownloader]
                         </td>
                     </tr>
                     <tr title="QBT_TR(Applies only to articles whose feed tells the size. Other articles aren't filtered by size.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
                         <td>
                             <label for="maxSizeValue" class="noWrap">QBT_TR(Maximum Size:)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
                         </td>
-                        <td class="fullWidth">
-                            <input disabled type="number" id="maxSizeValue" min="0" value="0"> QBT_TR(MiB (0 for no limit))QBT_TR[CONTEXT=AutomatedRssDownloader]
+                        <td class="fullWidth noWrap">
+                            <input disabled type="number" id="maxSizeValue" min="0" max="8796093022207" step="any" value="0"> QBT_TR(MiB (0 for no limit))QBT_TR[CONTEXT=AutomatedRssDownloader]
                         </td>
                     </tr>
                 </tbody>
@@ -676,6 +681,10 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
         const bytesPerMiB = 1048576;
 
         const saveSettings = () => {
+            // An invalid number input reads as empty, which would silently remove the limit
+            if (!document.getElementById("minSizeValue").reportValidity() || !document.getElementById("maxSizeValue").reportValidity())
+                return;
+
             const lastSelectedRow = rssDownloaderRulesTable.selectedRows.at(-1);
             const rule = rssDownloaderRulesTable.getRow(lastSelectedRow).full_data.name;
 
