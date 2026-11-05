@@ -267,20 +267,20 @@
             </widget>
            </item>
            <item>
-            <widget class="QSpinBox" name="spinMinSize">
+            <widget class="QDoubleSpinBox" name="spinMinSize">
              <property name="toolTip">
               <string>Applies only to articles whose feed tells the size. Other articles aren't filtered by size.</string>
              </property>
              <property name="specialValueText">
               <string>No limit</string>
              </property>
-             <property name="suffix">
-              <string> MiB</string>
-             </property>
              <property name="maximum">
-              <number>2147483647</number>
+              <double>1000.000000000000000</double>
              </property>
             </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="comboMinSizeUnit"/>
            </item>
            <item>
             <widget class="QLabel" name="lblMaxSize">
@@ -290,20 +290,20 @@
             </widget>
            </item>
            <item>
-            <widget class="QSpinBox" name="spinMaxSize">
+            <widget class="QDoubleSpinBox" name="spinMaxSize">
              <property name="toolTip">
               <string>Applies only to articles whose feed tells the size. Other articles aren't filtered by size.</string>
              </property>
              <property name="specialValueText">
               <string>No limit</string>
              </property>
-             <property name="suffix">
-              <string> MiB</string>
-             </property>
              <property name="maximum">
-              <number>2147483647</number>
+              <double>1000.000000000000000</double>
              </property>
             </widget>
+           </item>
+           <item>
+            <widget class="QComboBox" name="comboMaxSizeUnit"/>
            </item>
            <item>
             <spacer name="sizeLimitsSpacer">

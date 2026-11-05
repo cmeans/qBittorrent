@@ -29,8 +29,13 @@
 
 #include "automatedrssdownloader.h"
 
+#include <algorithm>
+#include <cmath>
+
 #include <QtVersionChecks>
+#include <QComboBox>
 #include <QCursor>
+#include <QDoubleSpinBox>
 #include <QFileDialog>
 #include <QMenu>
 #include <QMessageBox>
@@ -49,6 +54,7 @@
 #include "base/rss/rss_session.h"
 #include "base/utils/compare.h"
 #include "base/utils/io.h"
+#include "base/utils/misc.h"
 #include "base/utils/string.h"
 #include "gui/addtorrentparamswidget.h"
 #include "gui/autoexpandabledialog.h"
@@ -60,7 +66,77 @@
 
 const QString EXT_JSON = u".json"_s;
 const QString EXT_LEGACY = u".rssrules"_s;
-const qint64 BYTES_PER_MIB = 1048576;
+
+namespace
+{
+    using Utils::Misc::SizeUnit;
+
+    const SizeUnit DEFAULT_MIN_SIZE_UNIT = SizeUnit::MebiByte;
+    const SizeUnit DEFAULT_MAX_SIZE_UNIT = SizeUnit::GibiByte;
+
+    struct ShownSize
+    {
+        double value = 0;
+        SizeUnit unit = SizeUnit::Byte;
+    };
+
+    // 8 EiB doesn't fit in the stored size
+    double maximumSizeValue(const SizeUnit unit)
+    {
+        return (unit == SizeUnit::ExbiByte) ? 7.99 : 1000;
+    }
+
+    ShownSize sizeToShow(const qint64 bytes, const SizeUnit defaultUnit)
+    {
+        if (bytes <= 0)
+            return {.value = 0, .unit = defaultUnit};
+
+        const int largestUnit = static_cast<int>(SizeUnit::ExbiByte);
+        int unit = largestUnit;
+        while ((unit > 0) && (bytes < Utils::Misc::sizeInBytes(1, static_cast<SizeUnit>(unit))))
+            --unit;
+
+        const auto roundedValue = [bytes](const SizeUnit sizeUnit)
+        {
+            const double value = static_cast<double>(bytes) / Utils::Misc::sizeInBytes(1, sizeUnit);
+            return QString::number(value, 'f', 2).toDouble();
+        };
+
+        // A value under 1 can be the exact one, as in 0.99 GiB, which is too large to show in MiB
+        for (const int candidate : {unit, std::min((unit + 1), largestUnit)})
+        {
+            const auto sizeUnit = static_cast<SizeUnit>(candidate);
+            const double value = roundedValue(sizeUnit);
+            if ((value <= maximumSizeValue(sizeUnit)) && (Utils::Misc::sizeInBytes(value, sizeUnit) == bytes))
+                return {.value = value, .unit = sizeUnit};
+        }
+
+        const auto sizeUnit = static_cast<SizeUnit>(unit);
+        return {.value = std::min(roundedValue(sizeUnit), maximumSizeValue(sizeUnit)), .unit = sizeUnit};
+    }
+
+    void showSize(QDoubleSpinBox *spinBox, QComboBox *comboBox, const qint64 bytes, const SizeUnit defaultUnit)
+    {
+        const QSignalBlocker spinBoxBlocker {spinBox};
+        const QSignalBlocker comboBoxBlocker {comboBox};
+
+        const ShownSize shown = sizeToShow(bytes, defaultUnit);
+        comboBox->setCurrentIndex(static_cast<int>(shown.unit));
+        spinBox->setMaximum(maximumSizeValue(shown.unit));
+        spinBox->setValue(shown.value);
+    }
+
+    // A size that can only be shown rounded stays as it is until the user changes the fields
+    qint64 editedSize(const QDoubleSpinBox *spinBox, const QComboBox *comboBox, const qint64 currentBytes, const SizeUnit defaultUnit)
+    {
+        const auto unit = static_cast<SizeUnit>(comboBox->currentIndex());
+        const ShownSize shown = sizeToShow(currentBytes, defaultUnit);
+        if ((unit == shown.unit) && (std::abs(spinBox->value() - shown.value) < 0.001))
+            return currentBytes;
+
+        return Utils::Misc::sizeInBytes(spinBox->value(), unit);
+    }
+}
 
 AutomatedRssDownloader::AutomatedRssDownloader(QWidget *parent)
     : QDialog(parent)
@@ -150,10 +226,29 @@ AutomatedRssDownloader::AutomatedRssDownloader(QWidget *parent)
 #endif
     connect(m_ui->spinIgnorePeriod, qOverload<int>(&QSpinBox::valueChanged)
             , this, &AutomatedRssDownloader::handleRuleDefinitionChanged);
-    connect(m_ui->spinMinSize, qOverload<int>(&QSpinBox::valueChanged)
+    connect(m_ui->spinMinSize, qOverload<double>(&QDoubleSpinBox::valueChanged)
             , this, &AutomatedRssDownloader::handleRuleDefinitionChanged);
-    connect(m_ui->spinMaxSize, qOverload<int>(&QSpinBox::valueChanged)
+    connect(m_ui->spinMaxSize, qOverload<double>(&QDoubleSpinBox::valueChanged)
             , this, &AutomatedRssDownloader::handleRuleDefinitionChanged);
+
+    QStringList sizeUnits;
+    for (const SizeUnit unit : {SizeUnit::Byte, SizeUnit::KibiByte, SizeUnit::MebiByte, SizeUnit::GibiByte
+            , SizeUnit::TebiByte, SizeUnit::PebiByte, SizeUnit::ExbiByte})
+    {
+        sizeUnits.append(Utils::Misc::unitString(unit));
+    }
+    for (auto *comboBox : {m_ui->comboMinSizeUnit, m_ui->comboMaxSizeUnit})
+        comboBox->addItems(sizeUnits);
+    connect(m_ui->comboMinSizeUnit, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](const int index)
+    {
+        m_ui->spinMinSize->setMaximum(maximumSizeValue(static_cast<SizeUnit>(index)));
+        handleRuleDefinitionChanged();
+    });
+    connect(m_ui->comboMaxSizeUnit, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](const int index)
+    {
+        m_ui->spinMaxSize->setMaximum(maximumSizeValue(static_cast<SizeUnit>(index)));
+        handleRuleDefinitionChanged();
+    });
 
     connect(m_ui->listFeeds, &QListWidget::itemChanged, this, &AutomatedRssDownloader::handleFeedCheckStateChange);
 
@@ -323,12 +418,8 @@ void AutomatedRssDownloader::updateRuleDefinitionBox()
         m_ui->checkSmart->blockSignals(true);
         m_ui->checkSmart->setChecked(m_currentRule.useSmartFilter());
         m_ui->checkSmart->blockSignals(false);
-        m_ui->spinMinSize->blockSignals(true);
-        m_ui->spinMinSize->setValue(static_cast<int>(m_currentRule.minSize() / BYTES_PER_MIB));
-        m_ui->spinMinSize->blockSignals(false);
-        m_ui->spinMaxSize->blockSignals(true);
-        m_ui->spinMaxSize->setValue(static_cast<int>(m_currentRule.maxSize() / BYTES_PER_MIB));
-        m_ui->spinMaxSize->blockSignals(false);
+        showSize(m_ui->spinMinSize, m_ui->comboMinSizeUnit, m_currentRule.minSize(), DEFAULT_MIN_SIZE_UNIT);
+        showSize(m_ui->spinMaxSize, m_ui->comboMaxSizeUnit, m_currentRule.maxSize(), DEFAULT_MAX_SIZE_UNIT);
         m_ui->spinIgnorePeriod->setValue(m_currentRule.ignoreDays());
         QDateTime dateTime = m_currentRule.lastMatch();
         QString lMatch;
@@ -364,8 +455,8 @@ void AutomatedRssDownloader::clearRuleDefinitionBox()
     m_ui->lineEFilter->clear();
     m_ui->checkRegex->setChecked(false);
     m_ui->checkSmart->setChecked(false);
-    m_ui->spinMinSize->setValue(0);
-    m_ui->spinMaxSize->setValue(0);
+    showSize(m_ui->spinMinSize, m_ui->comboMinSizeUnit, 0, DEFAULT_MIN_SIZE_UNIT);
+    showSize(m_ui->spinMaxSize, m_ui->comboMaxSizeUnit, 0, DEFAULT_MAX_SIZE_UNIT);
     m_ui->spinIgnorePeriod->setValue(0);
     updateFieldsToolTips(m_ui->checkRegex->isChecked());
     updateMustLineValidity();
@@ -386,8 +477,8 @@ void AutomatedRssDownloader::updateEditedRule()
     m_currentRule.setMustNotContain(m_ui->lineNotContains->text());
     m_currentRule.setEpisodeFilter(m_ui->lineEFilter->text());
     m_currentRule.setIgnoreDays(m_ui->spinIgnorePeriod->value());
-    m_currentRule.setMinSize(m_ui->spinMinSize->value() * BYTES_PER_MIB);
-    m_currentRule.setMaxSize(m_ui->spinMaxSize->value() * BYTES_PER_MIB);
+    m_currentRule.setMinSize(editedSize(m_ui->spinMinSize, m_ui->comboMinSizeUnit, m_currentRule.minSize(), DEFAULT_MIN_SIZE_UNIT));
+    m_currentRule.setMaxSize(editedSize(m_ui->spinMaxSize, m_ui->comboMaxSizeUnit, m_currentRule.maxSize(), DEFAULT_MAX_SIZE_UNIT));
 
     m_currentRule.setAddTorrentParams(m_addTorrentParamsWidget->addTorrentParams());
 }
