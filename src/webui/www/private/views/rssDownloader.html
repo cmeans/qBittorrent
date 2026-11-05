@@ -752,6 +752,16 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
                 return;
             }
 
+            const minSize = sizeInBytes(Number(document.getElementById("minSizeValue").value), Number(document.getElementById("minSizeUnit").value));
+            const maxSize = sizeInBytes(Number(document.getElementById("maxSizeValue").value), Number(document.getElementById("maxSizeUnit").value));
+
+            // Unlike the search size filter, which swaps such limits here and matches nothing on desktop:
+            // this rule is saved and runs unattended, so a mistake is better caught than guessed at or left to never match
+            if ((maxSize > 0) && (minSize > maxSize)) {
+                alert("QBT_TR(Minimum size can't be greater than maximum size.)QBT_TR[CONTEXT=AutomatedRssDownloader]");
+                return;
+            }
+
             const lastSelectedRow = rssDownloaderRulesTable.selectedRows.at(-1);
             const rule = rssDownloaderRulesTable.getRow(lastSelectedRow).full_data.name;
 
@@ -760,8 +770,8 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
             rulesList[rule].mustNotContain = document.getElementById("mustNotContainText").value;
             rulesList[rule].episodeFilter = document.getElementById("episodeFilterText").value;
             rulesList[rule].smartFilter = document.getElementById("useSmartFilter").checked;
-            rulesList[rule].minSize = sizeInBytes(Number(document.getElementById("minSizeValue").value), Number(document.getElementById("minSizeUnit").value));
-            rulesList[rule].maxSize = sizeInBytes(Number(document.getElementById("maxSizeValue").value), Number(document.getElementById("maxSizeUnit").value));
+            rulesList[rule].minSize = minSize;
+            rulesList[rule].maxSize = maxSize;
             rulesList[rule].ignoreDays = Number(document.getElementById("ignoreDaysValue").value);
             rulesList[rule].affectedFeeds = [...rssDownloaderFeedSelectionTable.getRowValues()]
                 .filter((row) => row.full_data.checked)

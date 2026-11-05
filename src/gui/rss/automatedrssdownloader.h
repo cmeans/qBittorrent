@@ -62,6 +62,8 @@ public:
     explicit AutomatedRssDownloader(QWidget *parent = nullptr);
     ~AutomatedRssDownloader() override;
 
+    void done(int result) override;
+
 private slots:
     void onAddRuleBtnClicked();
     void onRemoveRuleBtnClicked();
@@ -95,6 +97,9 @@ private:
     void updateEditedRule();
     void updateMatchingArticles();
     void saveEditedRule();
+    bool hasValidSizeLimits() const;
+    void updateSizeLimitsValidity();
+    void warnAboutInvalidSizeLimits();
     void loadFeedList();
     void updateFeedList();
     void addFeedArticlesToTree(RSS::Feed *feed, const QStringList &articles);

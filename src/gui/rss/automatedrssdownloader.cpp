@@ -392,6 +392,7 @@ void AutomatedRssDownloader::updateRuleDefinitionBox()
 
     if (m_currentRuleItem != currentRuleItem)
     {
+        warnAboutInvalidSizeLimits();
         saveEditedRule(); // Save previous rule first
         m_currentRuleItem = currentRuleItem;
         //m_ui->ruleList->setCurrentItem(m_currentRuleItem);
@@ -420,6 +421,7 @@ void AutomatedRssDownloader::updateRuleDefinitionBox()
         m_ui->checkSmart->blockSignals(false);
         showSize(m_ui->spinMinSize, m_ui->comboMinSizeUnit, m_currentRule.minSize(), DEFAULT_MIN_SIZE_UNIT);
         showSize(m_ui->spinMaxSize, m_ui->comboMaxSizeUnit, m_currentRule.maxSize(), DEFAULT_MAX_SIZE_UNIT);
+        updateSizeLimitsValidity();
         m_ui->spinIgnorePeriod->setValue(m_currentRule.ignoreDays());
         QDateTime dateTime = m_currentRule.lastMatch();
         QString lMatch;
@@ -457,6 +459,7 @@ void AutomatedRssDownloader::clearRuleDefinitionBox()
     m_ui->checkSmart->setChecked(false);
     showSize(m_ui->spinMinSize, m_ui->comboMinSizeUnit, 0, DEFAULT_MIN_SIZE_UNIT);
     showSize(m_ui->spinMaxSize, m_ui->comboMaxSizeUnit, 0, DEFAULT_MAX_SIZE_UNIT);
+    updateSizeLimitsValidity();
     m_ui->spinIgnorePeriod->setValue(0);
     updateFieldsToolTips(m_ui->checkRegex->isChecked());
     updateMustLineValidity();
@@ -477,8 +480,13 @@ void AutomatedRssDownloader::updateEditedRule()
     m_currentRule.setMustNotContain(m_ui->lineNotContains->text());
     m_currentRule.setEpisodeFilter(m_ui->lineEFilter->text());
     m_currentRule.setIgnoreDays(m_ui->spinIgnorePeriod->value());
-    m_currentRule.setMinSize(editedSize(m_ui->spinMinSize, m_ui->comboMinSizeUnit, m_currentRule.minSize(), DEFAULT_MIN_SIZE_UNIT));
-    m_currentRule.setMaxSize(editedSize(m_ui->spinMaxSize, m_ui->comboMaxSizeUnit, m_currentRule.maxSize(), DEFAULT_MAX_SIZE_UNIT));
+    if (hasValidSizeLimits())
+    {
+        const qint64 minSize = editedSize(m_ui->spinMinSize, m_ui->comboMinSizeUnit, m_currentRule.minSize(), DEFAULT_MIN_SIZE_UNIT);
+        const qint64 maxSize = editedSize(m_ui->spinMaxSize, m_ui->comboMaxSizeUnit, m_currentRule.maxSize(), DEFAULT_MAX_SIZE_UNIT);
+        m_currentRule.setMinSize(minSize);
+        m_currentRule.setMaxSize(maxSize);
+    }
 
     m_currentRule.setAddTorrentParams(m_addTorrentParamsWidget->addTorrentParams());
 }
@@ -489,6 +497,38 @@ void AutomatedRssDownloader::saveEditedRule()
 
     updateEditedRule();
     RSS::AutoDownloader::instance()->setRule(m_currentRule);
+}
+
+bool AutomatedRssDownloader::hasValidSizeLimits() const
+{
+    const qint64 minSize = editedSize(m_ui->spinMinSize, m_ui->comboMinSizeUnit, m_currentRule.minSize(), DEFAULT_MIN_SIZE_UNIT);
+    const qint64 maxSize = editedSize(m_ui->spinMaxSize, m_ui->comboMaxSizeUnit, m_currentRule.maxSize(), DEFAULT_MAX_SIZE_UNIT);
+
+    // Unlike the search size filter, which matches nothing here and swaps such limits in the WebUI:
+    // this rule is saved and runs unattended, so a mistake is better caught than left to never match or guessed at
+    return (maxSize <= 0) || (minSize <= maxSize);
+}
+
+void AutomatedRssDownloader::updateSizeLimitsValidity()
+{
+    const QString styleSheet = hasValidSizeLimits() ? QString() : u"QDoubleSpinBox { color: #ff0000; }"_s;
+    m_ui->spinMinSize->setStyleSheet(styleSheet);
+    m_ui->spinMaxSize->setStyleSheet(styleSheet);
+}
+
+void AutomatedRssDownloader::warnAboutInvalidSizeLimits()
+{
+    if (!m_currentRuleItem || !m_ui->ruleScrollArea->isEnabled() || hasValidSizeLimits())
+        return;
+
+    QMessageBox::warning(this, tr("Invalid size limits")
+            , tr("Minimum size can't be greater than maximum size. The previous size limits of rule \"%1\" were kept.").arg(m_currentRuleItem->text()));
+}
+
+void AutomatedRssDownloader::done(const int result)
+{
+    warnAboutInvalidSizeLimits();
+    QDialog::done(result);
 }
 
 void AutomatedRssDownloader::onAddRuleBtnClicked()
@@ -974,6 +1014,7 @@ void AutomatedRssDownloader::updateEpisodeFilterValidity()
 void AutomatedRssDownloader::handleRuleDefinitionChanged()
 {
     updateEditedRule();
+    updateSizeLimitsValidity();
     updateMatchingArticles();
 }
 
