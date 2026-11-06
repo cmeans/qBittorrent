@@ -664,7 +664,9 @@ QVariantHash AutoDownloadRule::toLegacyDict() const
         {u"add_paused"_s, toAddPausedLegacy(addTorrentParams.addStopped)},
         {u"episode_filter"_s, episodeFilter()},
         {u"last_match"_s, lastMatch()},
-        {u"ignore_days"_s, ignoreDays()}};
+        {u"ignore_days"_s, ignoreDays()},
+        {u"min_size"_s, minSize()},
+        {u"max_size"_s, maxSize()}};
 }
 
 AutoDownloadRule AutoDownloadRule::fromLegacyDict(const QVariantHash &dict)
@@ -686,6 +688,8 @@ AutoDownloadRule AutoDownloadRule::fromLegacyDict(const QVariantHash &dict)
     rule.setEnabled(dict.value(u"enabled"_s, false).toBool());
     rule.setLastMatch(dict.value(u"last_match"_s).toDateTime());
     rule.setIgnoreDays(dict.value(u"ignore_days"_s).toInt());
+    rule.setMinSize(dict.value(u"min_size"_s).toLongLong());
+    rule.setMaxSize(dict.value(u"max_size"_s).toLongLong());
     rule.setAddTorrentParams(addTorrentParams);
 
     return rule;

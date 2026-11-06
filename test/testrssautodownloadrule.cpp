@@ -26,6 +26,8 @@
  * exception statement from your version.
  */
 
+#include <QByteArray>
+#include <QDataStream>
 #include <QDateTime>
 #include <QJsonObject>
 #include <QSignalSpy>
@@ -264,6 +266,37 @@ private slots:
         const RSS::AutoDownloadRule loaded = RSS::AutoDownloadRule::fromJsonObject(json, u"rule"_s);
         QCOMPARE(loaded.minSize(), ONE_GIB);
         QCOMPARE(loaded.maxSize(), FIVE_GIB);
+    }
+
+    void testSizeLimitsSurviveLegacyRoundTrip() const
+    {
+        RSS::AutoDownloadRule rule {u"rule"_s};
+        rule.setMinSize(ONE_GIB);
+        rule.setMaxSize(FIVE_GIB);
+
+        // Legacy rules files are written with this stream version
+        QByteArray data;
+        QDataStream out {&data, QIODevice::WriteOnly};
+        out.setVersion(QDataStream::Qt_4_5);
+        out << rule.toLegacyDict();
+
+        QDataStream in {data};
+        in.setVersion(QDataStream::Qt_4_5);
+        QVariantHash dict;
+        in >> dict;
+        QCOMPARE(in.status(), QDataStream::Ok);
+
+        const RSS::AutoDownloadRule loaded = RSS::AutoDownloadRule::fromLegacyDict(dict);
+        QCOMPARE(loaded.minSize(), ONE_GIB);
+        QCOMPARE(loaded.maxSize(), FIVE_GIB);
+    }
+
+    void testLegacyRuleWithoutSizeLimitsLoads() const
+    {
+        const RSS::AutoDownloadRule loaded = RSS::AutoDownloadRule::fromLegacyDict({{u"name"_s, u"rule"_s}});
+
+        QCOMPARE(loaded.minSize(), qint64(0));
+        QCOMPARE(loaded.maxSize(), qint64(0));
     }
 
     void testRuleWithoutSizeLimitsLoads() const
