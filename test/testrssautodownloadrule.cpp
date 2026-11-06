@@ -135,6 +135,11 @@ private slots:
         QTest::newRow("hyphen after word") << qint64(0) << ONE_GIB << u"HD-1.7 GiB"_s << false;
         QTest::newRow("spaced hyphen after number") << qint64(0) << ONE_GIB << u"Season 2 - 5 GiB"_s << false;
 
+        // A size given more than once is still one size
+        QTest::newRow("same size twice, over max") << qint64(0) << TWO_GIB << u"Size: 9 GiB, Files: 1 (9 GiB)"_s << false;
+        QTest::newRow("same size twice, over min") << TWO_GIB << qint64(0) << u"Size: 9 GiB, Files: 1 (9 GiB)"_s << true;
+        QTest::newRow("same size in different units") << qint64(0) << (ONE_GIB - 1) << u"1 GiB (1024 MiB)"_s << false;
+
         // An unknown size passes a maximum and fails a minimum, as in the search size filter
         QTest::newRow("unknown size fails min") << qint64(1) << qint64(0) << u"Movies / SD"_s << false;
         QTest::newRow("unknown size fails min and max") << qint64(1) << TWO_GIB << u"Movies / SD"_s << false;

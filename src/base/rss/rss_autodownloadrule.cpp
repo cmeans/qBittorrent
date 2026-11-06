@@ -104,7 +104,7 @@ namespace
     }
 
     // Reads a size written for humans, such as "1.7 GiB" or "1,024 MiB".
-    // The text must contain exactly one, since otherwise there is no telling which one is the torrent size.
+    // The text must contain one size, which it can repeat, since otherwise there is no telling which one is the torrent size.
     std::optional<qint64> sizeFromText(const QString &text)
     {
         // Captures: number with thousands separators, or plain number, then the unit prefix
@@ -112,25 +112,29 @@ namespace
         static const QRegularExpression sizeRegex {uR"((?<![\w.,])(?<!\d[-\x{2013}])(?:(\d{1,3}(?:,\d{3})+(?:\.\d+)?)|(\d+(?:[.,]\d+)?))(?:[\s\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;)*([KMGTP])i?B\b(?!/s(?:ec)?\b))"_s
             , QRegularExpression::CaseInsensitiveOption};
 
+        std::optional<qint64> result;
         QRegularExpressionMatchIterator matches = sizeRegex.globalMatch(text);
-        if (!matches.hasNext())
-            return std::nullopt;
+        while (matches.hasNext())
+        {
+            const QRegularExpressionMatch match = matches.next();
+            const double number = match.hasCaptured(1)
+                ? match.captured(1).remove(u',').toDouble()
+                : match.captured(2).replace(u',', u'.').toDouble();
+            const int exponent = 1 + QStringView(u"KMGTP").indexOf(match.capturedView(3).at(0).toUpper());
+            // All units are 1024-based, as for search results, whether or not they're written with an "i"
+            const double size = number * std::pow(1024, exponent);
+            if (size >= static_cast<double>(std::numeric_limits<qint64>::max()))
+                return std::nullopt;
 
-        const QRegularExpressionMatch match = matches.next();
-        if (matches.hasNext())
-            return std::nullopt;
+            // Drop the fraction like the size limits do, so a limit entered as the listed size matches it
+            const auto bytes = static_cast<qint64>(size);
+            if (result && (*result != bytes))
+                return std::nullopt;
 
-        const double number = match.hasCaptured(1)
-            ? match.captured(1).remove(u',').toDouble()
-            : match.captured(2).replace(u',', u'.').toDouble();
-        const int exponent = 1 + QStringView(u"KMGTP").indexOf(match.capturedView(3).at(0).toUpper());
-        // All units are 1024-based, as for search results, whether or not they're written with an "i"
-        const double size = number * std::pow(1024, exponent);
-        if (size >= static_cast<double>(std::numeric_limits<qint64>::max()))
-            return std::nullopt;
+            result = bytes;
+        }
 
-        // Drop the fraction like the size limits do, so a limit entered as the listed size matches it
-        return static_cast<qint64>(size);
+        return result;
     }
 
     std::optional<qint64> sizeFromElement(const QString &text)
