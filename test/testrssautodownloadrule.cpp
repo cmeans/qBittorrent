@@ -352,6 +352,14 @@ private slots:
         QTest::newRow("other enclosure types are not the torrent")
             << u"<enclosure url=\"http://x/a.mp3\" type=\"audio/mpeg\" length=\"1073741824\"/>"_s
             << qint64(-1);
+        QTest::newRow("length of the torrent enclosure that is used")
+            << u"<enclosure url=\"http://x/a.torrent\" type=\"application/x-bittorrent\" length=\"1073741824\"/>"
+                "<enclosure url=\"http://x/b.torrent\" type=\"application/x-bittorrent\" length=\"5368709120\"/>"_s
+            << FIVE_GIB;
+        QTest::newRow("no length left over from another torrent enclosure")
+            << u"<enclosure url=\"http://x/a.torrent\" type=\"application/x-bittorrent\" length=\"1073741824\"/>"
+                "<enclosure url=\"http://x/b.torrent\" type=\"application/x-bittorrent\"/>"_s
+            << qint64(-1);
         QTest::newRow("zero length")
             << u"<enclosure url=\"http://x/a.torrent\" type=\"application/x-bittorrent\" length=\"0\"/>"_s
             << qint64(-1);
