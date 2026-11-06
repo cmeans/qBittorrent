@@ -145,14 +145,14 @@ namespace
 
     std::optional<qint64> articleSize(const QVariantHash &articleData)
     {
-        if (const qint64 length = articleData.value(RSS::Article::KeyTorrentSize).toLongLong(); length > 0)
-            return length;
-
+        // Some feeds give the size of the .torrent file as the enclosure length, which is always smaller than its contents
+        const qint64 length = articleData.value(RSS::Article::KeyTorrentSize).toLongLong();
         // Feeds can provide this as an element of their own, which the parser keeps under its name
-        if (const std::optional<qint64> size = sizeFromElement(articleData.value(u"size"_s).toString()))
-            return size;
+        const qint64 elementSize = sizeFromElement(articleData.value(u"size"_s).toString()).value_or(0);
+        const qint64 textSize = sizeFromText(articleData.value(RSS::Article::KeyDescription).toString()).value_or(0);
 
-        return sizeFromText(articleData.value(RSS::Article::KeyDescription).toString());
+        const qint64 size = std::max({length, elementSize, textSize});
+        return (size > 0) ? std::optional(size) : std::nullopt;
     }
 }
 

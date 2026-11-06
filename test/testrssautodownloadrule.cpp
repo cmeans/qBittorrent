@@ -168,7 +168,7 @@ private slots:
         QCOMPARE(rule.matches(article(description)), expected);
     }
 
-    void testSizeSourcePrecedence_data() const
+    void testLargestSizeSourceWins_data() const
     {
         QTest::addColumn<QVariant>("torrentSize");
         QTest::addColumn<QVariant>("sizeElement");
@@ -177,9 +177,15 @@ private slots:
 
         // Each row is checked against a 2 GiB maximum
         const QVariant none;
-        QTest::newRow("enclosure length beats size element") << QVariant(FIVE_GIB) << QVariant(u"1073741824"_s) << QString() << false;
-        QTest::newRow("enclosure length beats description") << QVariant(ONE_GIB) << none << u"5 GiB"_s << true;
-        QTest::newRow("size element in bytes beats description") << none << QVariant(u"1073741824"_s) << u"5 GiB"_s << true;
+        QTest::newRow("enclosure length larger than size element") << QVariant(FIVE_GIB) << QVariant(u"1073741824"_s) << QString() << false;
+        QTest::newRow("enclosure length larger than description") << QVariant(FIVE_GIB) << none << u"1 GiB"_s << false;
+        QTest::newRow("description larger than enclosure length") << QVariant(ONE_GIB) << none << u"5 GiB"_s << false;
+        QTest::newRow("size element larger than enclosure length") << QVariant(ONE_GIB) << QVariant(u"5368709120"_s) << QString() << false;
+        QTest::newRow("description larger than size element") << none << QVariant(u"1073741824"_s) << u"5 GiB"_s << false;
+        QTest::newRow("all sources under limit") << QVariant(ONE_GIB) << QVariant(u"1073741824"_s) << u"1 GiB"_s << true;
+        QTest::newRow(".torrent file size as enclosure length, real size in description") << QVariant(qint64(30720)) << none << u"5 GiB"_s << false;
+        QTest::newRow(".torrent file size as enclosure length, real size in size element") << QVariant(qint64(30720)) << QVariant(u"5368709120"_s) << QString() << false;
+        QTest::newRow("enclosure length as the only size") << QVariant(qint64(30720)) << none << QString() << true;
         QTest::newRow("size element in bytes over limit") << none << QVariant(u"5368709120"_s) << u"1 GiB"_s << false;
         QTest::newRow("size element with unit") << none << QVariant(u"5 GiB"_s) << u"1 GiB"_s << false;
         QTest::newRow("unreadable size element falls back") << none << QVariant(u"unknown"_s) << u"5 GiB"_s << false;
@@ -187,7 +193,7 @@ private slots:
         QTest::newRow("zero enclosure length falls back") << QVariant(qint64(0)) << none << u"5 GiB"_s << false;
     }
 
-    void testSizeSourcePrecedence() const
+    void testLargestSizeSourceWins() const
     {
         QFETCH(const QVariant, torrentSize);
         QFETCH(const QVariant, sizeElement);
