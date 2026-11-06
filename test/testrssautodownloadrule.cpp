@@ -142,6 +142,13 @@ private slots:
         QTest::newRow("same size twice, over min") << TWO_GIB << qint64(0) << u"Size: 9 GiB, Files: 1 (9 GiB)"_s << true;
         QTest::newRow("same size in different units") << qint64(0) << (ONE_GIB - 1) << u"1 GiB (1024 MiB)"_s << false;
 
+        // HTML tags aren't part of the text, but a size can be next to them
+        QTest::newRow("size in a link next to the real size") << qint64(0) << TWO_GIB << u"<a href=\"http://x/2GB-sample\">Sample</a> Size: 5 GiB"_s << false;
+        QTest::newRow("size between tags") << qint64(0) << TWO_GIB << u"<b>Size: 5 GiB</b>"_s << false;
+        QTest::newRow("less-than sign isn't a tag") << qint64(0) << TWO_GIB << u"Size < 5 GiB and > 1 GiB"_s << true;
+        QTest::newRow("size after a less-than sign") << qint64(0) << TWO_GIB << u"< 5 GiB"_s << false;
+        QTest::newRow("per something else is still a size") << qint64(0) << TWO_GIB << u"5 GiB per file"_s << false;
+
         // An unknown size passes a maximum and fails a minimum, as in the search size filter
         QTest::newRow("unknown size fails min") << qint64(1) << qint64(0) << u"Movies / SD"_s << false;
         QTest::newRow("unknown size fails min and max") << qint64(1) << TWO_GIB << u"Movies / SD"_s << false;
@@ -159,6 +166,10 @@ private slots:
         QTest::newRow("size range with en dash") << qint64(0) << qint64(1) << u"1\u20132 GiB"_s << true;
         QTest::newRow("transfer rate") << qint64(0) << qint64(1) << u"Speed 10 MB/s"_s << true;
         QTest::newRow("transfer rate with sec") << qint64(0) << qint64(1) << u"Speed 10 MiB/sec"_s << true;
+        QTest::newRow("transfer rate with second") << qint64(0) << qint64(1) << u"Speed 10 MB/second"_s << true;
+        QTest::newRow("transfer rate per second") << qint64(0) << qint64(1) << u"Speed 10 MB per second"_s << true;
+        QTest::newRow("transfer rate per sec") << qint64(0) << qint64(1) << u"Speed 10 MB per sec"_s << true;
+        QTest::newRow("size only in a link") << qint64(0) << qint64(1) << u"<a href=\"http://x/2GB-sample\">Sample</a>"_s << true;
     }
 
     void testMatchesSizeFromDescription() const
