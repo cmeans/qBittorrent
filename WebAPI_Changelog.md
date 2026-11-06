@@ -3,7 +3,7 @@
 ## 2.16.3
 
 * `rss/rules` endpoint includes `minSize` (integer) and `maxSize` (integer) data for each rule, the size limits in bytes; `0` means no limit
-* `rss/setRule` endpoint accepts `minSize` and `maxSize` in `ruleDef`
+* `rss/setRule` endpoint accepts `minSize` and `maxSize` in `ruleDef`, and returns `400` if either isn't a non-negative integer or if `minSize` is greater than a non-zero `maxSize`
 * `rss/items` endpoint includes `torrentSize` (integer) data, in bytes, for articles whose feed gives an enclosure length
 
 ## 2.16.2
