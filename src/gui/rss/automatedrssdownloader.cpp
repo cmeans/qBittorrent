@@ -375,6 +375,10 @@ void AutomatedRssDownloader::updateFeedList()
 
 void AutomatedRssDownloader::updateRuleDefinitionBox()
 {
+    // Rules can be removed while the warning is showing, so the selection has to be read after it
+    if (m_currentRuleItem && (m_ui->ruleList->selectedItems() != QList<QListWidgetItem *> {m_currentRuleItem}))
+        warnAboutInvalidSizeLimits();
+
     const QList<QListWidgetItem *> selection = m_ui->ruleList->selectedItems();
     QListWidgetItem *currentRuleItem = ((selection.count() == 1) ? selection.first() : nullptr);
 
@@ -392,7 +396,6 @@ void AutomatedRssDownloader::updateRuleDefinitionBox()
 
     if (m_currentRuleItem != currentRuleItem)
     {
-        warnAboutInvalidSizeLimits();
         saveEditedRule(); // Save previous rule first
         m_currentRuleItem = currentRuleItem;
         //m_ui->ruleList->setCurrentItem(m_currentRuleItem);
