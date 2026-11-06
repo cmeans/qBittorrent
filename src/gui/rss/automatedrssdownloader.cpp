@@ -480,13 +480,11 @@ void AutomatedRssDownloader::updateEditedRule()
     m_currentRule.setMustNotContain(m_ui->lineNotContains->text());
     m_currentRule.setEpisodeFilter(m_ui->lineEFilter->text());
     m_currentRule.setIgnoreDays(m_ui->spinIgnorePeriod->value());
-    if (hasValidSizeLimits())
-    {
-        const qint64 minSize = editedSize(m_ui->spinMinSize, m_ui->comboMinSizeUnit, m_currentRule.minSize(), DEFAULT_MIN_SIZE_UNIT);
-        const qint64 maxSize = editedSize(m_ui->spinMaxSize, m_ui->comboMaxSizeUnit, m_currentRule.maxSize(), DEFAULT_MAX_SIZE_UNIT);
-        m_currentRule.setMinSize(minSize);
-        m_currentRule.setMaxSize(maxSize);
-    }
+    // This runs on every keystroke, so limits have to fall back to the saved ones, not to what was last typed
+    const RSS::AutoDownloadRule savedRule = RSS::AutoDownloader::instance()->ruleByName(m_currentRule.name());
+    const bool isValid = hasValidSizeLimits();
+    m_currentRule.setMinSize(isValid ? editedMinSize() : savedRule.minSize());
+    m_currentRule.setMaxSize(isValid ? editedMaxSize() : savedRule.maxSize());
 
     m_currentRule.setAddTorrentParams(m_addTorrentParamsWidget->addTorrentParams());
 }
@@ -499,10 +497,22 @@ void AutomatedRssDownloader::saveEditedRule()
     RSS::AutoDownloader::instance()->setRule(m_currentRule);
 }
 
+qint64 AutomatedRssDownloader::editedMinSize() const
+{
+    const qint64 savedSize = RSS::AutoDownloader::instance()->ruleByName(m_currentRule.name()).minSize();
+    return editedSize(m_ui->spinMinSize, m_ui->comboMinSizeUnit, savedSize, DEFAULT_MIN_SIZE_UNIT);
+}
+
+qint64 AutomatedRssDownloader::editedMaxSize() const
+{
+    const qint64 savedSize = RSS::AutoDownloader::instance()->ruleByName(m_currentRule.name()).maxSize();
+    return editedSize(m_ui->spinMaxSize, m_ui->comboMaxSizeUnit, savedSize, DEFAULT_MAX_SIZE_UNIT);
+}
+
 bool AutomatedRssDownloader::hasValidSizeLimits() const
 {
-    const qint64 minSize = editedSize(m_ui->spinMinSize, m_ui->comboMinSizeUnit, m_currentRule.minSize(), DEFAULT_MIN_SIZE_UNIT);
-    const qint64 maxSize = editedSize(m_ui->spinMaxSize, m_ui->comboMaxSizeUnit, m_currentRule.maxSize(), DEFAULT_MAX_SIZE_UNIT);
+    const qint64 minSize = editedMinSize();
+    const qint64 maxSize = editedMaxSize();
 
     // Unlike the search size filter, which matches nothing here and swaps such limits in the WebUI:
     // this rule is saved and runs unattended, so a mistake is better caught than left to never match or guessed at

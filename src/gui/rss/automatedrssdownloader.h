@@ -97,6 +97,8 @@ private:
     void updateEditedRule();
     void updateMatchingArticles();
     void saveEditedRule();
+    qint64 editedMinSize() const;
+    qint64 editedMaxSize() const;
     bool hasValidSizeLimits() const;
     void updateSizeLimitsValidity();
     void warnAboutInvalidSizeLimits();
