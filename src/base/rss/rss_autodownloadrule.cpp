@@ -129,7 +129,8 @@ namespace
         if (size >= static_cast<double>(std::numeric_limits<qint64>::max()))
             return std::nullopt;
 
-        return std::llround(size);
+        // Drop the fraction like the size limits do, so a limit entered as the listed size matches it
+        return static_cast<qint64>(size);
     }
 
     std::optional<qint64> sizeFromElement(const QString &text)

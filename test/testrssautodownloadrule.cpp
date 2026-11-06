@@ -98,6 +98,13 @@ private slots:
         QTest::newRow("min is inclusive") << TWO_GIB << qint64(0) << u"2 GiB"_s << true;
         QTest::newRow("just over max") << qint64(0) << TWO_GIB << u"2.01 GiB"_s << false;
 
+        // 1.7 GiB is 1825361100.8 bytes, which a limit entered as 1.7 GiB stores without the fraction
+        QTest::newRow("decimal size at max entered the same") << qint64(0) << qint64(1825361100) << u"1.7 GiB"_s << true;
+        QTest::newRow("decimal size at min entered the same") << qint64(1825361100) << qint64(0) << u"1.7 GiB"_s << true;
+        QTest::newRow("decimal size at min and max entered the same") << qint64(1825361100) << qint64(1825361100) << u"1.7 GiB"_s << true;
+        QTest::newRow("decimal size just over max") << qint64(0) << qint64(1825361099) << u"1.7 GiB"_s << false;
+        QTest::newRow("decimal size just under min") << qint64(1825361101) << qint64(0) << u"1.7 GiB"_s << false;
+
         QTest::newRow("GB is 1024-based, at limit") << qint64(0) << TWO_GIB << u"2 GB"_s << true;
         QTest::newRow("GB is 1024-based, over limit") << qint64(0) << (TWO_GIB - 1) << u"2 GB"_s << false;
         QTest::newRow("KB is 1024-based") << qint64(0) << qint64(2047) << u"2 KB"_s << false;
