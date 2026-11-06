@@ -124,8 +124,8 @@ private slots:
         QTest::newRow("decimal comma after four digits") << qint64(0) << (1025 * ONE_MIB) << u"1024,500 MiB"_s << true;
 
         // Feeds can separate the number and the unit with something other than a plain space
-        QTest::newRow("no-break space before unit") << qint64(0) << ONE_GIB << u"1.71 GiB"_s << false;
-        QTest::newRow("thin space before unit") << qint64(0) << ONE_GIB << u"1.71 GiB"_s << false;
+        QTest::newRow("no-break space before unit") << qint64(0) << ONE_GIB << u"1.71\u00A0GiB"_s << false;
+        QTest::newRow("thin space before unit") << qint64(0) << ONE_GIB << u"1.71\u2009GiB"_s << false;
         QTest::newRow("HTML no-break space before unit") << qint64(0) << ONE_GIB << u"Size: 1.71&nbsp;GiB"_s << false;
         QTest::newRow("HTML numeric no-break space before unit") << qint64(0) << ONE_GIB << u"Size: 1.71&#160;GiB"_s << false;
         QTest::newRow("HTML hexadecimal no-break space before unit") << qint64(0) << ONE_GIB << u"Size: 1.71&#xA0;GiB"_s << false;
@@ -156,7 +156,7 @@ private slots:
         QTest::newRow("a bare B is not a size") << qint64(0) << qint64(1) << u"Series 4 B"_s << true;
         QTest::newRow("number without unit") << qint64(0) << qint64(1) << u"Movies / 1080"_s << true;
         QTest::newRow("size range with hyphen") << qint64(0) << qint64(1) << u"1-2 GiB"_s << true;
-        QTest::newRow("size range with en dash") << qint64(0) << qint64(1) << u"1–2 GiB"_s << true;
+        QTest::newRow("size range with en dash") << qint64(0) << qint64(1) << u"1\u20132 GiB"_s << true;
         QTest::newRow("transfer rate") << qint64(0) << qint64(1) << u"Speed 10 MB/s"_s << true;
         QTest::newRow("transfer rate with sec") << qint64(0) << qint64(1) << u"Speed 10 MiB/sec"_s << true;
     }
