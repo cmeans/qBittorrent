@@ -207,7 +207,7 @@
                             <input disabled type="text" id="episodeFilterText" class="fullWidth" autocorrect="off" autocapitalize="none">
                         </td>
                     </tr>
-                    <tr title="QBT_TR(Articles of unknown size are filtered out.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
+                    <tr title="QBT_TR(Articles smaller than this size are filtered out, as are articles of unknown size. An article of exactly this size is kept. 0 for No Limit. Unit of this size limit. Units are 1024-based: 1 GiB = 1024 MiB. Sizes in feeds count the same way, even when written as GB or MB.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
                         <td>
                             <label for="minSizeValue" class="noWrap">QBT_TR(Minimum Size:)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
                         </td>
@@ -222,10 +222,10 @@
                                 <option value="5">QBT_TR(PiB)QBT_TR[CONTEXT=misc]</option>
                                 <option value="6">QBT_TR(EiB)QBT_TR[CONTEXT=misc]</option>
                             </select>
-                            QBT_TR(0 for no limit)QBT_TR[CONTEXT=AutomatedRssDownloader]
+                            QBT_TR((0 for No Limit))QBT_TR[CONTEXT=AutomatedRssDownloader]
                         </td>
                     </tr>
-                    <tr title="QBT_TR(Articles of unknown size aren't filtered out.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
+                    <tr title="QBT_TR(Articles larger than this size are filtered out. Articles of unknown size aren't. An article of exactly this size is kept. 0 for No Limit. Unit of this size limit. Units are 1024-based: 1 GiB = 1024 MiB. Sizes in feeds count the same way, even when written as GB or MB.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
                         <td>
                             <label for="maxSizeValue" class="noWrap">QBT_TR(Maximum Size:)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
                         </td>
@@ -240,7 +240,7 @@
                                 <option value="5">QBT_TR(PiB)QBT_TR[CONTEXT=misc]</option>
                                 <option value="6">QBT_TR(EiB)QBT_TR[CONTEXT=misc]</option>
                             </select>
-                            QBT_TR(0 for no limit)QBT_TR[CONTEXT=AutomatedRssDownloader]
+                            QBT_TR((0 for No Limit))QBT_TR[CONTEXT=AutomatedRssDownloader]
                         </td>
                     </tr>
                 </tbody>

@@ -257,6 +257,9 @@
            </item>
            <item row="3" column="0">
             <widget class="QLabel" name="lblMinSize">
+             <property name="toolTip">
+              <string>Articles smaller than this size are filtered out, as are articles of unknown size. An article of exactly this size is kept. 0 for No Limit.</string>
+             </property>
              <property name="text">
               <string>Minimum Size:</string>
              </property>
@@ -267,10 +270,10 @@
              <item>
               <widget class="QDoubleSpinBox" name="spinMinSize">
                <property name="toolTip">
-                <string>Articles of unknown size are filtered out.</string>
+                <string>Articles smaller than this size are filtered out, as are articles of unknown size. An article of exactly this size is kept. 0 for No Limit.</string>
                </property>
                <property name="specialValueText">
-                <string>No limit</string>
+                <string>No Limit</string>
                </property>
                <property name="maximum">
                 <double>1000.000000000000000</double>
@@ -278,7 +281,21 @@
               </widget>
              </item>
              <item>
-              <widget class="QComboBox" name="comboMinSizeUnit"/>
+              <widget class="QComboBox" name="comboMinSizeUnit">
+               <property name="toolTip">
+                <string>Unit of this size limit. Units are 1024-based: 1 GiB = 1024 MiB. Sizes in feeds count the same way, even when written as GB or MB.</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lblMinSizeHint">
+               <property name="toolTip">
+                <string>Articles smaller than this size are filtered out, as are articles of unknown size. An article of exactly this size is kept. 0 for No Limit.</string>
+               </property>
+               <property name="text">
+                <string>(0 for No Limit)</string>
+               </property>
+              </widget>
              </item>
              <item>
               <spacer name="minSizeSpacer">
@@ -297,6 +314,9 @@
            </item>
            <item row="4" column="0">
             <widget class="QLabel" name="lblMaxSize">
+             <property name="toolTip">
+              <string>Articles larger than this size are filtered out. Articles of unknown size aren't. An article of exactly this size is kept. 0 for No Limit.</string>
+             </property>
              <property name="text">
               <string>Maximum Size:</string>
              </property>
@@ -307,10 +327,10 @@
              <item>
               <widget class="QDoubleSpinBox" name="spinMaxSize">
                <property name="toolTip">
-                <string>Articles of unknown size aren't filtered out.</string>
+                <string>Articles larger than this size are filtered out. Articles of unknown size aren't. An article of exactly this size is kept. 0 for No Limit.</string>
                </property>
                <property name="specialValueText">
-                <string>No limit</string>
+                <string>No Limit</string>
                </property>
                <property name="maximum">
                 <double>1000.000000000000000</double>
@@ -318,7 +338,21 @@
               </widget>
              </item>
              <item>
-              <widget class="QComboBox" name="comboMaxSizeUnit"/>
+              <widget class="QComboBox" name="comboMaxSizeUnit">
+               <property name="toolTip">
+                <string>Unit of this size limit. Units are 1024-based: 1 GiB = 1024 MiB. Sizes in feeds count the same way, even when written as GB or MB.</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QLabel" name="lblMaxSizeHint">
+               <property name="toolTip">
+                <string>Articles larger than this size are filtered out. Articles of unknown size aren't. An article of exactly this size is kept. 0 for No Limit.</string>
+               </property>
+               <property name="text">
+                <string>(0 for No Limit)</string>
+               </property>
+              </widget>
              </item>
              <item>
               <spacer name="maxSizeSpacer">
