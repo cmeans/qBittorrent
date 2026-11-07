@@ -103,6 +103,10 @@ namespace
         return Utils::String::fromEnum(*contentLayout);
     }
 
+    // 7.99 EiB, the largest size the rules dialog and the WebUI can enter. It also stays in range when the WebUI
+    // sends it back as a JavaScript number, which a size close to the largest qint64 doesn't.
+    const qint64 MAX_SIZE_LIMIT = 9211842821808707584;
+
     // Reads a size written for humans, such as "1.7 GiB" or "1,024 MiB".
     // The text must contain one size, which it can repeat, since otherwise there is no telling which one is the torrent size.
     std::optional<qint64> sizeFromText(const QString &text)
@@ -110,20 +114,24 @@ namespace
         // Captures: number with thousands separators, or plain number, then the unit prefix
         // The spacing can be any Unicode space, &nbsp; or &thinsp;, the last two also as numeric references.
         // An unspaced range ("1-2 GiB") and a rate in the common forms ("10 MB/s", "10 MB per second") aren't sizes.
-        static const QRegularExpression sizeRegex {uR"((?<![\w.,])(?<!\d[-\x{2013}])(?:(\d{1,3}(?:,\d{3})+(?:\.\d+)?)|(\d+(?:[.,]\d+)?))(?:[\s\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;|&#x2009;)*([KMGTP])i?B\b(?!/(?:s|sec|second)\b|[\s\p{Zs}]+per[\s\p{Zs}]+(?:s|sec|second)\b))"_s
+        // Repeats are possessive, since giving them back can't lead to a match, and long runs would otherwise reach the regex engine's limits.
+        static const QRegularExpression sizeRegex {uR"((?<![\w.,])(?<!\d[-\x{2013}])(?:(\d{1,3}(?:,\d{3})++(?:\.\d+)?)|(\d+(?:[.,]\d+)?))(?:[\s\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;|&#x2009;)*+([KMGTP])i?B\b(?!/(?:s|sec|second)\b|[\s\p{Zs}]+per[\s\p{Zs}]+(?:s|sec|second)\b))"_s
             , QRegularExpression::CaseInsensitiveOption};
         // "1 234 MiB" could be one number or a number before a size ("Files: 3 700 MiB").
         // Reading only the last group could be off by a factor of 1000, so such a size is unknown.
-        // A match can only start at the first group, and the groups aren't given back, so a long run of groups is checked in linear time.
-        static const QRegularExpression spaceGroupedSizeRegex {uR"((?<![\w.,])(?<!\d[ '\x{2019}\p{Zs}]|\d&nbsp;|\d&#160;|\d&#xA0;|\d&thinsp;|\d&#8201;|\d&#x2009;)\d{1,3}(?:(?:[ '\x{2019}\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;|&#x2009;)\d{3})++(?:[.,]\d+)?(?:[\s\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;|&#x2009;)*[KMGTP]i?B\b)"_s
+        // Each run of groups matches whole, with the unit captured if one follows, so a long run is checked in linear time.
+        static const QRegularExpression spaceGroupedSizeRegex {uR"((?<![\w.,])\d{1,3}(?:(?:[ '\x{2019}\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;|&#x2009;)\d{3})++(?:(?:[.,]\d+)?(?:[\s\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;|&#x2009;)*+([KMGTP])i?B\b)?)"_s
             , QRegularExpression::CaseInsensitiveOption};
         // A link can contain something that looks like a size
         static const QRegularExpression htmlTagRegex {uR"(</?[a-zA-Z][^<>]*>)"_s};
 
         // Text on either side of a tag, such as in table cells, isn't one number or word
         const QString plainText = QString(text).replace(htmlTagRegex, u"\n"_s);
-        if (plainText.contains(spaceGroupedSizeRegex))
-            return std::nullopt;
+        for (QRegularExpressionMatchIterator runs = spaceGroupedSizeRegex.globalMatch(plainText); runs.hasNext();)
+        {
+            if (runs.next().hasCaptured(1))
+                return std::nullopt;
+        }
 
         std::optional<qint64> result;
         QRegularExpressionMatchIterator matches = sizeRegex.globalMatch(plainText);
@@ -162,7 +170,9 @@ namespace
         if (isNumber)
             return (bytes > 0) ? std::optional(bytes) : std::nullopt;
 
-        return sizeFromText(text);
+        // As for a number, a size of 0 such as "0 GiB" says nothing, so the other sources are used
+        const std::optional<qint64> textSize = sizeFromText(text);
+        return (textSize.value_or(0) > 0) ? textSize : std::nullopt;
     }
 
     std::optional<qint64> articleSize(const QVariantHash &articleData)
@@ -870,7 +880,7 @@ qint64 AutoDownloadRule::minSize() const
 
 void AutoDownloadRule::setMinSize(const qint64 bytes)
 {
-    m_dataPtr->minSize = std::max<qint64>(bytes, 0);
+    m_dataPtr->minSize = std::clamp<qint64>(bytes, 0, MAX_SIZE_LIMIT);
 }
 
 qint64 AutoDownloadRule::maxSize() const
@@ -880,5 +890,5 @@ qint64 AutoDownloadRule::maxSize() const
 
 void AutoDownloadRule::setMaxSize(const qint64 bytes)
 {
-    m_dataPtr->maxSize = std::max<qint64>(bytes, 0);
+    m_dataPtr->maxSize = std::clamp<qint64>(bytes, 0, MAX_SIZE_LIMIT);
 }

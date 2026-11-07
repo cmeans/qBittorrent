@@ -26,6 +26,8 @@
  * exception statement from your version.
  */
 
+#include <limits>
+
 #include <QByteArray>
 #include <QDateTime>
 #include <QJsonDocument>
@@ -38,6 +40,7 @@
 #include "base/rss/rss_article.h"
 #include "base/rss/rss_autodownloadrule.h"
 #include "base/rss/rss_parser.h"
+#include "base/utils/misc.h"
 
 namespace
 {
@@ -92,6 +95,7 @@ private slots:
         QTest::newRow("no limits accept any size") << qint64(0) << qint64(0) << u"Movies / SD / 500 GiB"_s << true;
         QTest::newRow("under max") << qint64(0) << TWO_GIB << u"Factual / HD1080p / 1.7 GiB\n                         "_s << true;
         QTest::newRow("over max") << qint64(0) << TWO_GIB << u"Movies / SD / 2.5 GiB"_s << false;
+        QTest::newRow("space-grouped number without a unit") << qint64(0) << TWO_GIB << u"Seeds: 1 234, size: 5 GiB"_s << false;
         QTest::newRow("under min") << ONE_GIB << qint64(0) << u"Entertainment / SD / 903.21 MiB\n   / Freeleech!  "_s << false;
         QTest::newRow("over min") << ONE_GIB << qint64(0) << u"Movies / SD / 1.5 GiB"_s << true;
         QTest::newRow("inside range") << ONE_GIB << TWO_GIB << u"Movies / SD / 1.5 GiB"_s << true;
@@ -173,7 +177,10 @@ private slots:
         QTest::newRow("unknown size fails min and max") << qint64(1) << TWO_GIB << u"Movies / SD"_s << false;
         QTest::newRow("empty description fails min") << qint64(1) << qint64(0) << QString() << false;
         QTest::newRow("several sizes fail min") << qint64(1) << qint64(0) << u"1 GiB of 5 GiB"_s << false;
-        QTest::newRow("Kelvin sign isn't a unit") << qint64(1) << qint64(0) << u"1 KB"_s << false;
+        QTest::newRow("Kelvin sign isn't a unit") << qint64(1) << qint64(0) << u"1 \u212AB"_s << false;
+        QTest::newRow("two sizes far apart fail min") << TWO_GIB << qint64(0) << (u"3 GiB, 1"_s + u" "_s.repeated(30000) + u"GiB"_s) << false;
+        QTest::newRow("size after a long run of spaces") << TWO_GIB << qint64(0) << (u"1"_s + u" "_s.repeated(30000) + u"x 3 GiB"_s) << true;
+        QTest::newRow("size after a long run of thousands") << TWO_GIB << qint64(0) << (u"1"_s + u",000"_s.repeated(100000) + u" x 3 GiB"_s) << true;
         QTest::newRow("no limits accept unknown size") << qint64(0) << qint64(0) << u"Movies / SD"_s << true;
 
         // The size is unknown in these, so the maximum (which they would otherwise fail) doesn't apply
@@ -210,7 +217,12 @@ private slots:
         QTest::newRow("space between thousands with decimals") << qint64(0) << qint64(1) << u"1 234,5 MiB"_s << true;
         QTest::newRow("short number before three digits") << qint64(0) << qint64(1) << u"Files: 3 700 MiB"_s << true;
         QTest::newRow("long run of three digits before unit") << qint64(0) << qint64(1) << (u"Files: 3"_s + u" 700"_s.repeated(30000) + u" MiB"_s) << true;
-        QTest::newRow("long run of three digits without unit") << qint64(0) << qint64(1) << (u"Size 1"_s + u" 111"_s.repeated(30000) + u" big"_s) << true;    }
+        QTest::newRow("long run of three digits without unit") << qint64(0) << qint64(1) << (u"Size 1"_s + u" 111"_s.repeated(30000) + u" big"_s) << true;
+        QTest::newRow("codec before space-grouped size") << qint64(0) << qint64(1) << u"x264 1 234 MiB"_s << true;
+        QTest::newRow("episode number before space-grouped size") << qint64(0) << qint64(1) << u"Episode 5 1 234 MiB"_s << true;
+        QTest::newRow("short number before space-grouped size") << qint64(0) << qint64(1) << u"1 2 345 MiB"_s << true;
+        QTest::newRow("codec before HTML space-grouped size") << qint64(0) << qint64(1) << u"x264 1&nbsp;234 MiB"_s << true;
+    }
 
     void testMatchesSizeFromDescription() const
     {
@@ -249,6 +261,7 @@ private slots:
         QTest::newRow("unreadable size element falls back") << none << QVariant(u"unknown"_s) << u"5 GiB"_s << false;
         QTest::newRow("zero size element falls back") << none << QVariant(u"0"_s) << u"5 GiB"_s << false;
         QTest::newRow("zero enclosure length falls back") << QVariant(qint64(0)) << none << u"5 GiB"_s << false;
+        QTest::newRow("zero size element with unit falls back") << none << QVariant(u"0 GiB"_s) << u"5 GiB"_s << false;
     }
 
     void testSizeSourcePriority() const
@@ -368,6 +381,24 @@ private slots:
         QVERIFY(rule.matches(article(u"1 GiB"_s)));
     }
 
+    void testLimitsAreCappedAtLargestEnteredSize() const
+    {
+        // 7.99 EiB, as the rules dialog and the WebUI enter it
+        const qint64 largest = Utils::Misc::sizeInBytes(7.99, Utils::Misc::SizeUnit::ExbiByte);
+
+        RSS::AutoDownloadRule rule {u"rule"_s};
+        rule.setMinSize(std::numeric_limits<qint64>::max());
+        rule.setMaxSize(std::numeric_limits<qint64>::max());
+        QCOMPARE(rule.minSize(), largest);
+        QCOMPARE(rule.maxSize(), largest);
+
+        // The WebUI sends the largest size back as a JavaScript number, which isn't exact
+        const RSS::AutoDownloadRule loaded = RSS::AutoDownloadRule::fromJsonObject(
+                QJsonDocument::fromJson("{\"minSize\": 9211842821808708000, \"maxSize\": 9211842821808708000}").object(), u"rule"_s);
+        QCOMPARE(loaded.minSize(), largest);
+        QCOMPARE(loaded.maxSize(), largest);
+    }
+
     void testSizeLimitsAffectRuleEquality() const
     {
         const RSS::AutoDownloadRule left {u"rule"_s};
@@ -417,6 +448,13 @@ private slots:
         QTest::newRow("no length left over when the untyped enclosure is used")
             << u"<enclosure url=\"\" type=\"application/x-bittorrent\" length=\"1073741824\"/>"
                 "<enclosure url=\"http://x/b.torrent\"/>"_s
+            << none;
+        QTest::newRow("no length when a magnet link replaces the torrent URL")
+            << u"<enclosure url=\"http://x/a.torrent\" type=\"application/x-bittorrent\" length=\"5368709120\"/>"
+                "<link>magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567</link>"_s
+            << none;
+        QTest::newRow("no length for a torrent enclosure without a URL")
+            << u"<enclosure url=\"\" type=\"application/x-bittorrent\" length=\"5368709120\"/>"_s
             << none;
         QTest::newRow("untyped enclosure isn't used with a magnet link")
             << u"<link>magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567</link>"

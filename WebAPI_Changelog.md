@@ -3,9 +3,9 @@
 ## 2.16.3
 
 * `rss/rules` and `rss/exportRules` endpoints include `minSize` (int) and `maxSize` (int) data for each rule, the size limits in bytes; `0` means no limit
-* `rss/setRule` and `rss/importRules` endpoints accept `minSize` (int) and `maxSize` (int) for each rule; any other value means no limit
+* `rss/setRule` and `rss/importRules` endpoints accept `minSize` (int) and `maxSize` (int) for each rule; a negative or non-integer value means no limit, and a value over `9211842821808707584` (7.99 EiB) is lowered to it
 * `rss/matchingArticles` endpoint applies the size limits, both inclusive; an article of unknown size passes `maxSize` and fails `minSize`, and a `minSize` greater than a non-zero `maxSize` matches no article
-  * The article size is its `size` element if it has one, otherwise the larger of its enclosure length and a single size stated in its description
+  * The article size is its `size` element if that gives a size over 0, otherwise the larger of its enclosure length and a single size stated in its description
 * `rss/items` endpoint includes `torrentSize` (int) data, in bytes: the length of the enclosure that gives the article's `torrentURL`, if it has a length; some feeds give the size of the .torrent file there
 
 ## 2.16.2

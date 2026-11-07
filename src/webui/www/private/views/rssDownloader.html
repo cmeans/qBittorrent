@@ -207,9 +207,9 @@
                             <input disabled type="text" id="episodeFilterText" class="fullWidth" autocorrect="off" autocapitalize="none">
                         </td>
                     </tr>
-                    <tr title="QBT_TR(Articles smaller than this size are filtered out, as are articles of unknown size. An article of exactly this size is kept. 0 means no limit.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
+                    <tr title="QBT_TR(Articles smaller than this size are filtered out, as are articles of unknown size. An article of exactly this size is kept. 0 for No Limit.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
                         <td>
-                            <label for="minSizeValue" class="noWrap">QBT_TR(Minimum Size:)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
+                            <label for="minSizeValue" class="noWrap">QBT_TR(Minimum Size (0 for No Limit):)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
                         </td>
                         <td class="fullWidth noWrap">
                             <input disabled type="number" id="minSizeValue" min="0" max="1000" step=".01" value="0">
@@ -224,9 +224,9 @@
                             </select>
                         </td>
                     </tr>
-                    <tr title="QBT_TR(Articles larger than this size are filtered out. Articles of unknown size aren't. An article of exactly this size is kept. 0 means no limit.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
+                    <tr title="QBT_TR(Articles larger than this size are filtered out. Articles of unknown size are kept. An article of exactly this size is kept. 0 for No Limit.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
                         <td>
-                            <label for="maxSizeValue" class="noWrap">QBT_TR(Maximum Size:)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
+                            <label for="maxSizeValue" class="noWrap">QBT_TR(Maximum Size (0 for No Limit):)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
                         </td>
                         <td class="fullWidth noWrap">
                             <input disabled type="number" id="maxSizeValue" min="0" max="1000" step=".01" value="0">
@@ -759,7 +759,7 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
             const rule = rssDownloaderRulesTable.getRow(lastSelectedRow).full_data.name;
 
             if (!isValidSizeValue("min") || !isValidSizeValue("max")) {
-                alert("QBT_TR(Size limits must be numbers from 0 to 1000, or to 7.99 in EiB, with at most two decimals.)QBT_TR[CONTEXT=AutomatedRssDownloader]");
+                alert("QBT_TR(Size limits must be numbers from 0 to 1000 (up to 7.99 for EiB), with at most two decimal places.)QBT_TR[CONTEXT=AutomatedRssDownloader]");
                 return;
             }
 

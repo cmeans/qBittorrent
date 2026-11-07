@@ -515,7 +515,7 @@ qint64 AutomatedRssDownloader::editedMaxSize() const
     return editedSize(m_ui->spinMaxSize, m_ui->comboMaxSizeUnit, savedSize, DEFAULT_MAX_SIZE_UNIT);
 }
 
-bool AutomatedRssDownloader::hasValidSizeLimits() const
+QString AutomatedRssDownloader::sizeLimitsError() const
 {
     // The fields accept the same value in every unit, so that changing the unit doesn't change the value
     const auto fitsUnit = [](const QDoubleSpinBox *spinBox, const QComboBox *comboBox) -> bool
@@ -523,28 +523,38 @@ bool AutomatedRssDownloader::hasValidSizeLimits() const
         return (spinBox->value() <= maximumSizeValue(static_cast<SizeUnit>(comboBox->currentIndex())));
     };
     if (!fitsUnit(m_ui->spinMinSize, m_ui->comboMinSizeUnit) || !fitsUnit(m_ui->spinMaxSize, m_ui->comboMaxSizeUnit))
-        return false;
+        return tr("A size in EiB can be at most 7.99.");
 
     const qint64 minSize = editedMinSize();
     const qint64 maxSize = editedMaxSize();
-    return (maxSize <= 0) || (minSize <= maxSize);
+    if ((maxSize > 0) && (minSize > maxSize))
+        return tr("The minimum size can't be larger than the maximum size.");
+
+    return {};
 }
 
 void AutomatedRssDownloader::updateSizeLimitsValidity()
 {
-    if (hasValidSizeLimits())
+    const QString error = sizeLimitsError();
+    if (error.isEmpty())
     {
         for (QDoubleSpinBox *spinBox : {m_ui->spinMinSize, m_ui->spinMaxSize})
             spinBox->setStyleSheet({});
         for (QLabel *label : {m_ui->labelMinSizeStat, m_ui->labelMaxSizeStat})
+        {
             label->setPixmap({});
+            label->setToolTip({});
+        }
     }
     else
     {
         for (QDoubleSpinBox *spinBox : {m_ui->spinMinSize, m_ui->spinMaxSize})
             spinBox->setStyleSheet(u"QDoubleSpinBox { color: #ff0000; }"_s);
         for (QLabel *label : {m_ui->labelMinSizeStat, m_ui->labelMaxSizeStat})
+        {
             label->setPixmap(UIThemeManager::instance()->getIcon(u"dialog-warning"_s, u"task-attention"_s).pixmap(16, 16));
+            label->setToolTip(error);
+        }
     }
 }
 
