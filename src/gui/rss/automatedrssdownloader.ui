@@ -261,7 +261,7 @@
               <string>Articles smaller than this size are filtered out, as are articles of unknown size. An article of exactly this size is kept. 0 for No Limit.</string>
              </property>
              <property name="text">
-              <string>Minimum Size:</string>
+              <string>Minimum Size (0 for No Limit):</string>
              </property>
             </widget>
            </item>
@@ -288,16 +288,6 @@
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="lblMinSizeHint">
-               <property name="toolTip">
-                <string>Articles smaller than this size are filtered out, as are articles of unknown size. An article of exactly this size is kept. 0 for No Limit.</string>
-               </property>
-               <property name="text">
-                <string>(0 for No Limit)</string>
-               </property>
-              </widget>
-             </item>
-             <item>
               <spacer name="minSizeSpacer">
                <property name="orientation">
                 <enum>Qt::Orientation::Horizontal</enum>
@@ -312,13 +302,23 @@
              </item>
             </layout>
            </item>
+           <item row="3" column="2">
+            <widget class="QLabel" name="labelMinSizeStat">
+             <property name="maximumSize">
+              <size>
+               <width>18</width>
+               <height>18</height>
+              </size>
+             </property>
+            </widget>
+           </item>
            <item row="4" column="0">
             <widget class="QLabel" name="lblMaxSize">
              <property name="toolTip">
               <string>Articles larger than this size are filtered out. Articles of unknown size aren't. An article of exactly this size is kept. 0 for No Limit.</string>
              </property>
              <property name="text">
-              <string>Maximum Size:</string>
+              <string>Maximum Size (0 for No Limit):</string>
              </property>
             </widget>
            </item>
@@ -345,16 +345,6 @@
               </widget>
              </item>
              <item>
-              <widget class="QLabel" name="lblMaxSizeHint">
-               <property name="toolTip">
-                <string>Articles larger than this size are filtered out. Articles of unknown size aren't. An article of exactly this size is kept. 0 for No Limit.</string>
-               </property>
-               <property name="text">
-                <string>(0 for No Limit)</string>
-               </property>
-              </widget>
-             </item>
-             <item>
               <spacer name="maxSizeSpacer">
                <property name="orientation">
                 <enum>Qt::Orientation::Horizontal</enum>
@@ -368,6 +358,16 @@
               </spacer>
              </item>
             </layout>
+           </item>
+           <item row="4" column="2">
+            <widget class="QLabel" name="labelMaxSizeStat">
+             <property name="maximumSize">
+              <size>
+               <width>18</width>
+               <height>18</height>
+              </size>
+             </property>
+            </widget>
            </item>
           </layout>
          </item>

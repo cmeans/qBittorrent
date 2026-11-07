@@ -209,7 +209,7 @@
                     </tr>
                     <tr title="QBT_TR(Articles smaller than this size are filtered out, as are articles of unknown size. An article of exactly this size is kept. 0 for No Limit.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
                         <td>
-                            <label for="minSizeValue" class="noWrap">QBT_TR(Minimum Size:)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
+                            <label for="minSizeValue" class="noWrap">QBT_TR(Minimum Size (0 for No Limit):)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
                         </td>
                         <td class="fullWidth noWrap">
                             <input disabled type="number" id="minSizeValue" min="0" max="1000" step=".01" value="0">
@@ -222,12 +222,11 @@
                                 <option value="5">QBT_TR(PiB)QBT_TR[CONTEXT=misc]</option>
                                 <option value="6">QBT_TR(EiB)QBT_TR[CONTEXT=misc]</option>
                             </select>
-                            QBT_TR((0 for No Limit))QBT_TR[CONTEXT=AutomatedRssDownloader]
                         </td>
                     </tr>
                     <tr title="QBT_TR(Articles larger than this size are filtered out. Articles of unknown size aren't. An article of exactly this size is kept. 0 for No Limit.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
                         <td>
-                            <label for="maxSizeValue" class="noWrap">QBT_TR(Maximum Size:)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
+                            <label for="maxSizeValue" class="noWrap">QBT_TR(Maximum Size (0 for No Limit):)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
                         </td>
                         <td class="fullWidth noWrap">
                             <input disabled type="number" id="maxSizeValue" min="0" max="1000" step=".01" value="0">
@@ -240,7 +239,6 @@
                                 <option value="5">QBT_TR(PiB)QBT_TR[CONTEXT=misc]</option>
                                 <option value="6">QBT_TR(EiB)QBT_TR[CONTEXT=misc]</option>
                             </select>
-                            QBT_TR((0 for No Limit))QBT_TR[CONTEXT=AutomatedRssDownloader]
                         </td>
                     </tr>
                 </tbody>

@@ -227,8 +227,12 @@ AutomatedRssDownloader::AutomatedRssDownloader(QWidget *parent)
             , this, &AutomatedRssDownloader::handleRuleDefinitionChanged);
     connect(m_ui->spinMinSize, qOverload<double>(&QDoubleSpinBox::valueChanged)
             , this, &AutomatedRssDownloader::handleRuleDefinitionChanged);
+    connect(m_ui->spinMinSize, qOverload<double>(&QDoubleSpinBox::valueChanged)
+            , this, &AutomatedRssDownloader::updateSizeLimitsValidity);
     connect(m_ui->spinMaxSize, qOverload<double>(&QDoubleSpinBox::valueChanged)
             , this, &AutomatedRssDownloader::handleRuleDefinitionChanged);
+    connect(m_ui->spinMaxSize, qOverload<double>(&QDoubleSpinBox::valueChanged)
+            , this, &AutomatedRssDownloader::updateSizeLimitsValidity);
 
     QStringList sizeUnits;
     for (const SizeUnit unit : {SizeUnit::Byte, SizeUnit::KibiByte, SizeUnit::MebiByte, SizeUnit::GibiByte
@@ -239,7 +243,9 @@ AutomatedRssDownloader::AutomatedRssDownloader(QWidget *parent)
     for (auto *comboBox : {m_ui->comboMinSizeUnit, m_ui->comboMaxSizeUnit})
         comboBox->addItems(sizeUnits);
     connect(m_ui->comboMinSizeUnit, qOverload<int>(&QComboBox::currentIndexChanged), this, &AutomatedRssDownloader::handleRuleDefinitionChanged);
+    connect(m_ui->comboMinSizeUnit, qOverload<int>(&QComboBox::currentIndexChanged), this, &AutomatedRssDownloader::updateSizeLimitsValidity);
     connect(m_ui->comboMaxSizeUnit, qOverload<int>(&QComboBox::currentIndexChanged), this, &AutomatedRssDownloader::handleRuleDefinitionChanged);
+    connect(m_ui->comboMaxSizeUnit, qOverload<int>(&QComboBox::currentIndexChanged), this, &AutomatedRssDownloader::updateSizeLimitsValidity);
 
     connect(m_ui->listFeeds, &QListWidget::itemChanged, this, &AutomatedRssDownloader::handleFeedCheckStateChange);
 
@@ -411,7 +417,6 @@ void AutomatedRssDownloader::updateRuleDefinitionBox()
         m_ui->checkSmart->blockSignals(false);
         showSize(m_ui->spinMinSize, m_ui->comboMinSizeUnit, m_currentRule.minSize(), DEFAULT_MIN_SIZE_UNIT);
         showSize(m_ui->spinMaxSize, m_ui->comboMaxSizeUnit, m_currentRule.maxSize(), DEFAULT_MAX_SIZE_UNIT);
-        updateSizeLimitsValidity();
         m_ui->spinIgnorePeriod->setValue(m_currentRule.ignoreDays());
         QDateTime dateTime = m_currentRule.lastMatch();
         QString lMatch;
@@ -423,6 +428,7 @@ void AutomatedRssDownloader::updateRuleDefinitionBox()
         updateMustLineValidity();
         updateMustNotLineValidity();
         updateEpisodeFilterValidity();
+        updateSizeLimitsValidity();
 
         updateFieldsToolTips(m_ui->checkRegex->isChecked());
         m_ui->ruleScrollArea->setEnabled(true);
@@ -449,12 +455,12 @@ void AutomatedRssDownloader::clearRuleDefinitionBox()
     m_ui->checkSmart->setChecked(false);
     showSize(m_ui->spinMinSize, m_ui->comboMinSizeUnit, 0, DEFAULT_MIN_SIZE_UNIT);
     showSize(m_ui->spinMaxSize, m_ui->comboMaxSizeUnit, 0, DEFAULT_MAX_SIZE_UNIT);
-    updateSizeLimitsValidity();
     m_ui->spinIgnorePeriod->setValue(0);
     updateFieldsToolTips(m_ui->checkRegex->isChecked());
     updateMustLineValidity();
     updateMustNotLineValidity();
     updateEpisodeFilterValidity();
+    updateSizeLimitsValidity();
 }
 
 void AutomatedRssDownloader::updateEditedRule()
@@ -513,9 +519,20 @@ bool AutomatedRssDownloader::hasValidSizeLimits() const
 
 void AutomatedRssDownloader::updateSizeLimitsValidity()
 {
-    const QString styleSheet = hasValidSizeLimits() ? QString() : u"QDoubleSpinBox { color: #ff0000; }"_s;
-    m_ui->spinMinSize->setStyleSheet(styleSheet);
-    m_ui->spinMaxSize->setStyleSheet(styleSheet);
+    if (hasValidSizeLimits())
+    {
+        for (QDoubleSpinBox *spinBox : {m_ui->spinMinSize, m_ui->spinMaxSize})
+            spinBox->setStyleSheet({});
+        for (QLabel *label : {m_ui->labelMinSizeStat, m_ui->labelMaxSizeStat})
+            label->setPixmap({});
+    }
+    else
+    {
+        for (QDoubleSpinBox *spinBox : {m_ui->spinMinSize, m_ui->spinMaxSize})
+            spinBox->setStyleSheet(u"QDoubleSpinBox { color: #ff0000; }"_s);
+        for (QLabel *label : {m_ui->labelMinSizeStat, m_ui->labelMaxSizeStat})
+            label->setPixmap(UIThemeManager::instance()->getIcon(u"dialog-warning"_s, u"task-attention"_s).pixmap(16, 16));
+    }
 }
 
 void AutomatedRssDownloader::onAddRuleBtnClicked()
@@ -1001,7 +1018,6 @@ void AutomatedRssDownloader::updateEpisodeFilterValidity()
 void AutomatedRssDownloader::handleRuleDefinitionChanged()
 {
     updateEditedRule();
-    updateSizeLimitsValidity();
     updateMatchingArticles();
 }
 

@@ -2,10 +2,11 @@
 
 ## 2.16.3
 
-* `rss/rules` endpoint includes `minSize` (integer) and `maxSize` (integer) data for each rule, the size limits in bytes; `0` means no limit
-* `rss/setRule` endpoint accepts `minSize` and `maxSize` in `ruleDef`
-* `rss/matchingArticles` endpoint applies the size limits
-* `rss/items` endpoint includes `torrentSize` (integer) data, in bytes, for articles whose RSS enclosure has the type `application/x-bittorrent` or no type, and gives a length; some feeds give the size of the .torrent file there
+* `rss/rules` endpoint includes `minSize` (int) and `maxSize` (int) data for each rule, the size limits in bytes; `0` means no limit
+* `rss/setRule` endpoint accepts `minSize` (int) and `maxSize` (int) in `ruleDef`; any other value means no limit
+* `rss/matchingArticles` endpoint applies the size limits, both inclusive; an article of unknown size passes `maxSize` and fails `minSize`, and a `minSize` greater than a non-zero `maxSize` matches no article
+  * The article size is its `size` element if it has one, otherwise the larger of its enclosure length and a single size stated in its description
+* `rss/items` endpoint includes `torrentSize` (int) data, in bytes, for articles whose RSS enclosure has the type `application/x-bittorrent` or no type, and gives a length; some feeds give the size of the .torrent file there
 
 ## 2.16.2
 
