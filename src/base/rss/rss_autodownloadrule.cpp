@@ -109,21 +109,30 @@ namespace
     {
         // Captures: number with thousands separators, or plain number, then the unit prefix
         // The spacing can be any Unicode space, &nbsp; or &thinsp;, the last two also as numeric references.
-        // A range ("1-2 GiB") and a rate ("10 MB/s", "10 MB per second") aren't sizes.
-        static const QRegularExpression sizeRegex {uR"((?<![\w.,])(?<!\d[-\x{2013}])(?:(\d{1,3}(?:,\d{3})+(?:\.\d+)?)|(\d+(?:[.,]\d+)?))(?:[\s\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;)*([KMGTP])i?B\b(?!/(?:s|sec|second)\b|[\s\p{Zs}]+per[\s\p{Zs}]+(?:s|sec|second)\b))"_s
+        // An unspaced range ("1-2 GiB") and a rate ("10 MB/s", "10 MB per second") aren't sizes.
+        static const QRegularExpression sizeRegex {uR"((?<![\w.,])(?<!\d[-\x{2013}])(?:(\d{1,3}(?:,\d{3})+(?:\.\d+)?)|(\d+(?:[.,]\d+)?))(?:[\s\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;|&#x2009;)*([KMGTP])i?B\b(?!/(?:s|sec|second)\b|[\s\p{Zs}]+per[\s\p{Zs}]+(?:s|sec|second)\b))"_s
+            , QRegularExpression::CaseInsensitiveOption};
+        // "1 234 MiB" could be one number or a number before a size ("Files: 3 700 MiB").
+        // Reading only the last group could be off by a factor of 1000, so such a size is unknown.
+        static const QRegularExpression spaceGroupedSizeRegex {uR"((?<![\w.,])\d{1,3}(?:(?:[ '\x{A0}\x{202F}]|&nbsp;)\d{3})+(?:[.,]\d+)?[\s\p{Zs}]*[KMGTP]i?B\b)"_s
             , QRegularExpression::CaseInsensitiveOption};
         // A link can contain something that looks like a size
         static const QRegularExpression htmlTagRegex {uR"(</?[a-zA-Z][^<>]*>)"_s};
 
+        // Text on either side of a tag, such as in table cells, isn't one number or word
+        const QString plainText = QString(text).replace(htmlTagRegex, u"\n"_s);
+        if (plainText.contains(spaceGroupedSizeRegex))
+            return std::nullopt;
+
         std::optional<qint64> result;
-        QRegularExpressionMatchIterator matches = sizeRegex.globalMatch(QString(text).remove(htmlTagRegex));
+        QRegularExpressionMatchIterator matches = sizeRegex.globalMatch(plainText);
         while (matches.hasNext())
         {
             const QRegularExpressionMatch match = matches.next();
             const double number = match.hasCaptured(1)
                 ? match.captured(1).remove(u',').toDouble()
                 : match.captured(2).replace(u',', u'.').toDouble();
-            const int exponent = 1 + QStringView(u"KMGTP").indexOf(match.capturedView(3).at(0).toUpper());
+            const int exponent = 1 + static_cast<int>(QStringView(u"KMGTP").indexOf(match.capturedView(3).at(0).toUpper()));
             // All units are 1024-based, as for search results, whether or not they're written with an "i"
             const double size = number * std::pow(1024, exponent);
             if (size >= static_cast<double>(std::numeric_limits<qint64>::max()))
@@ -152,13 +161,17 @@ namespace
 
     std::optional<qint64> articleSize(const QVariantHash &articleData)
     {
-        // Some feeds give the size of the .torrent file as the enclosure length, which is always smaller than its contents
+        // Feeds can provide this as an element of their own, which the parser keeps under its name.
+        // It only states the size, unlike a description, which can mention other sizes.
+        const std::optional<qint64> elementSize = sizeFromElement(articleData.value(u"size"_s).toString());
+        if (elementSize)
+            return elementSize;
+
+        // Some feeds give the size of the .torrent file as the enclosure length, which is normally smaller than its contents
         const qint64 length = articleData.value(RSS::Article::KeyTorrentSize).toLongLong();
-        // Feeds can provide this as an element of their own, which the parser keeps under its name
-        const qint64 elementSize = sizeFromElement(articleData.value(u"size"_s).toString()).value_or(0);
         const qint64 textSize = sizeFromText(articleData.value(RSS::Article::KeyDescription).toString()).value_or(0);
 
-        const qint64 size = std::max({length, elementSize, textSize});
+        const qint64 size = std::max(length, textSize);
         return (size > 0) ? std::optional(size) : std::nullopt;
     }
 }
@@ -506,6 +519,7 @@ bool AutoDownloadRule::matches(const QVariantHash &articleData) const
         return false;
     if (!matchesMustNotContainExpression(articleTitle))
         return false;
+    // This must come before the smart filter, which records the episode of an article that gets this far
     if (!matchesSizeLimits(articleData))
         return false;
     if (!matchesEpisodeFilterExpression(articleTitle))
@@ -570,6 +584,17 @@ QJsonObject AutoDownloadRule::toJsonObject() const
 
         , {S_TORRENT_PARAMS, BitTorrent::serializeAddTorrentParams(addTorrentParams)}
     };
+}
+
+bool AutoDownloadRule::hasValidSizeLimits(const QJsonObject &jsonObj)
+{
+    // A limit that couldn't be read would otherwise become no limit, and a rule can download on its own
+    const QJsonValue minSizeValue = jsonObj.value(S_MIN_SIZE);
+    const QJsonValue maxSizeValue = jsonObj.value(S_MAX_SIZE);
+    const qint64 minSize = minSizeValue.isUndefined() ? 0 : minSizeValue.toInteger(-1);
+    const qint64 maxSize = maxSizeValue.isUndefined() ? 0 : maxSizeValue.toInteger(-1);
+
+    return (minSize >= 0) && (maxSize >= 0) && ((maxSize == 0) || (minSize <= maxSize));
 }
 
 AutoDownloadRule AutoDownloadRule::fromJsonObject(const QJsonObject &jsonObj, const QString &name)

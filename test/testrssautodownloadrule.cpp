@@ -29,6 +29,7 @@
 #include <QByteArray>
 #include <QDataStream>
 #include <QDateTime>
+#include <QJsonDocument>
 #include <QJsonObject>
 #include <QSignalSpy>
 #include <QTest>
@@ -57,7 +58,7 @@ namespace
                 "<item><title>Some Show</title><guid>id-1</guid>%1</item></channel></rss>"_s.arg(itemBody);
 
         RSS::Private::Parser parser {{}};
-        QSignalSpy spy {&parser, &RSS::Private::Parser::finished};
+        const QSignalSpy spy {&parser, &RSS::Private::Parser::finished};
         parser.parse(feed.toUtf8());
 
         if (spy.count() != 1)
@@ -114,6 +115,7 @@ private slots:
         QTest::newRow("MiB unit") << qint64(0) << (100 * ONE_MIB) << u"101 MiB"_s << false;
         QTest::newRow("units ignore case") << qint64(0) << (700 * ONE_MIB) << u"701 mb"_s << false;
         QTest::newRow("TiB unit") << qint64(0) << FIVE_GIB << u"1 TiB"_s << false;
+        QTest::newRow("PiB unit") << qint64(0) << FIVE_GIB << u"1 PiB"_s << false;
 
         QTest::newRow("thousands separator, at limit") << qint64(0) << ONE_GIB << u"1,024 MiB"_s << true;
         QTest::newRow("thousands separator, over limit") << qint64(0) << (ONE_GIB - 1) << u"1,024 MiB"_s << false;
@@ -124,6 +126,9 @@ private slots:
         QTest::newRow("decimal comma after four digits") << qint64(0) << (1025 * ONE_MIB) << u"1024,500 MiB"_s << true;
 
         // Feeds can separate the number and the unit with something other than a plain space
+        QTest::newRow("nothing before unit") << qint64(0) << ONE_GIB << u"1.71GiB"_s << false;
+        QTest::newRow("two spaces before unit") << qint64(0) << ONE_GIB << u"1.71  GiB"_s << false;
+        QTest::newRow("tab before unit") << qint64(0) << ONE_GIB << u"1.71\tGiB"_s << false;
         QTest::newRow("no-break space before unit") << qint64(0) << ONE_GIB << u"1.71\u00A0GiB"_s << false;
         QTest::newRow("thin space before unit") << qint64(0) << ONE_GIB << u"1.71\u2009GiB"_s << false;
         QTest::newRow("HTML no-break space before unit") << qint64(0) << ONE_GIB << u"Size: 1.71&nbsp;GiB"_s << false;
@@ -131,11 +136,15 @@ private slots:
         QTest::newRow("HTML hexadecimal no-break space before unit") << qint64(0) << ONE_GIB << u"Size: 1.71&#xA0;GiB"_s << false;
         QTest::newRow("HTML thin space before unit") << qint64(0) << ONE_GIB << u"Size: 1.71&thinsp;GiB"_s << false;
         QTest::newRow("HTML numeric thin space before unit") << qint64(0) << ONE_GIB << u"Size: 1.71&#8201;GiB"_s << false;
+        QTest::newRow("HTML hexadecimal thin space before unit") << qint64(0) << ONE_GIB << u"Size: 1.71&#x2009;GiB"_s << false;
 
         // Similar to the unreadable text below, but these are sizes and must keep working
         QTest::newRow("slash right after unit") << qint64(0) << ONE_GIB << u"Movies / 1.7 GiB/SD"_s << false;
         QTest::newRow("hyphen after word") << qint64(0) << ONE_GIB << u"HD-1.7 GiB"_s << false;
         QTest::newRow("spaced hyphen after number") << qint64(0) << ONE_GIB << u"Season 2 - 5 GiB"_s << false;
+        QTest::newRow("codec before size") << qint64(0) << (699 * ONE_MIB) << u"x264 700 MiB"_s << false;
+        QTest::newRow("year before size") << qint64(0) << (699 * ONE_MIB) << u"2024 700 MiB"_s << false;
+        QTest::newRow("short number before size") << qint64(0) << ONE_GIB << u"Season 2 5 GiB"_s << false;
 
         // A size given more than once is still one size
         QTest::newRow("same size twice, over max") << qint64(0) << TWO_GIB << u"Size: 9 GiB, Files: 1 (9 GiB)"_s << false;
@@ -145,9 +154,19 @@ private slots:
         // HTML tags aren't part of the text, but a size can be next to them
         QTest::newRow("size in a link next to the real size") << qint64(0) << TWO_GIB << u"<a href=\"http://x/2GB-sample\">Sample</a> Size: 5 GiB"_s << false;
         QTest::newRow("size between tags") << qint64(0) << TWO_GIB << u"<b>Size: 5 GiB</b>"_s << false;
-        QTest::newRow("less-than sign isn't a tag") << qint64(0) << TWO_GIB << u"Size < 5 GiB and > 1 GiB"_s << true;
+        QTest::newRow("less-than sign isn't a tag") << qint64(0) << (512 * ONE_MIB) << u"Size < 5 GiB and > 1 GiB"_s << true;
         QTest::newRow("size after a less-than sign") << qint64(0) << TWO_GIB << u"< 5 GiB"_s << false;
         QTest::newRow("per something else is still a size") << qint64(0) << TWO_GIB << u"5 GiB per file"_s << false;
+        QTest::newRow("per season is still a size") << qint64(0) << TWO_GIB << u"5 GiB per season"_s << false;
+
+        // Text on either side of a tag isn't one number or word
+        QTest::newRow("word after a tag following the size") << qint64(0) << TWO_GIB << u"Size: 5 GB<br>Seeds: 3"_s << false;
+        QTest::newRow("word before a tag preceding the size") << qint64(0) << TWO_GIB << u"<td>Name</td><td>5 GB</td>"_s << false;
+        QTest::newRow("number before a tag preceding the size") << qint64(0) << ONE_GIB << u"Seeds: 3<br>700 MB"_s << true;
+        QTest::newRow("number in the previous table cell") << qint64(0) << ONE_GIB << u"<td>12</td><td>700 MB</td>"_s << true;
+        QTest::newRow("three digits in the previous table cell") << qint64(0) << (699 * ONE_MIB) << u"<td>123</td><td>700 MB</td>"_s << false;
+        QTest::newRow("three digits before a tag aren't thousands") << qint64(0) << (699 * ONE_MIB) << u"Seeds: 123<br>700 MB"_s << false;
+        QTest::newRow("unit in its own tag") << qint64(0) << TWO_GIB << u"<b>5</b> GiB"_s << false;
 
         // An unknown size passes a maximum and fails a minimum, as in the search size filter
         QTest::newRow("unknown size fails min") << qint64(1) << qint64(0) << u"Movies / SD"_s << false;
@@ -170,6 +189,16 @@ private slots:
         QTest::newRow("transfer rate per second") << qint64(0) << qint64(1) << u"Speed 10 MB per second"_s << true;
         QTest::newRow("transfer rate per sec") << qint64(0) << qint64(1) << u"Speed 10 MB per sec"_s << true;
         QTest::newRow("size only in a link") << qint64(0) << qint64(1) << u"<a href=\"http://x/2GB-sample\">Sample</a>"_s << true;
+        QTest::newRow("bits aren't bytes") << qint64(0) << qint64(1) << u"100 Mbit"_s << true;
+        QTest::newRow("version number before unit") << qint64(0) << qint64(1) << u"1.2.3 GiB"_s << true;
+        QTest::newRow("end of a word before unit") << qint64(0) << qint64(1) << u"x264 GB"_s << true;
+        QTest::newRow("too large to store") << qint64(0) << qint64(1) << u"99999999 PiB"_s << true;
+        QTest::newRow("space between thousands") << qint64(0) << qint64(1) << u"1 234 MiB"_s << true;
+        QTest::newRow("no-break space between thousands") << qint64(0) << qint64(1) << u"1 234 MiB"_s << true;
+        QTest::newRow("HTML no-break space between thousands") << qint64(0) << qint64(1) << u"1&nbsp;234 MiB"_s << true;
+        QTest::newRow("apostrophe between thousands") << qint64(0) << qint64(1) << u"1'234 MiB"_s << true;
+        QTest::newRow("space between thousands with decimals") << qint64(0) << qint64(1) << u"1 234,5 MiB"_s << true;
+        QTest::newRow("short number before three digits") << qint64(0) << qint64(1) << u"Files: 3 700 MiB"_s << true;
     }
 
     void testMatchesSizeFromDescription() const
@@ -186,7 +215,7 @@ private slots:
         QCOMPARE(rule.matches(article(description)), expected);
     }
 
-    void testLargestSizeSourceWins_data() const
+    void testSizeSourcePriority_data() const
     {
         QTest::addColumn<QVariant>("torrentSize");
         QTest::addColumn<QVariant>("sizeElement");
@@ -195,11 +224,11 @@ private slots:
 
         // Each row is checked against a 2 GiB maximum
         const QVariant none;
-        QTest::newRow("enclosure length larger than size element") << QVariant(FIVE_GIB) << QVariant(u"1073741824"_s) << QString() << false;
+        QTest::newRow("size element beats larger enclosure length") << QVariant(FIVE_GIB) << QVariant(u"1073741824"_s) << QString() << true;
         QTest::newRow("enclosure length larger than description") << QVariant(FIVE_GIB) << none << u"1 GiB"_s << false;
         QTest::newRow("description larger than enclosure length") << QVariant(ONE_GIB) << none << u"5 GiB"_s << false;
         QTest::newRow("size element larger than enclosure length") << QVariant(ONE_GIB) << QVariant(u"5368709120"_s) << QString() << false;
-        QTest::newRow("description larger than size element") << none << QVariant(u"1073741824"_s) << u"5 GiB"_s << false;
+        QTest::newRow("size element beats larger description") << none << QVariant(u"1073741824"_s) << u"Part of a 5 GiB collection"_s << true;
         QTest::newRow("all sources under limit") << QVariant(ONE_GIB) << QVariant(u"1073741824"_s) << u"1 GiB"_s << true;
         QTest::newRow(".torrent file size as enclosure length, real size in description") << QVariant(qint64(30720)) << none << u"5 GiB"_s << false;
         QTest::newRow(".torrent file size as enclosure length, real size in size element") << QVariant(qint64(30720)) << QVariant(u"5368709120"_s) << QString() << false;
@@ -211,7 +240,7 @@ private slots:
         QTest::newRow("zero enclosure length falls back") << QVariant(qint64(0)) << none << u"5 GiB"_s << false;
     }
 
-    void testLargestSizeSourceWins() const
+    void testSizeSourcePriority() const
     {
         QFETCH(const QVariant, torrentSize);
         QFETCH(const QVariant, sizeElement);
@@ -232,14 +261,15 @@ private slots:
 
     void testEnclosureLengthSurvivesStorage() const
     {
-        // Articles are stored as JSON, so a saved length comes back as a double
         RSS::AutoDownloadRule rule {u"rule"_s};
         rule.setMaxSize(TWO_GIB);
 
+        // Articles are stored as JSON
         QVariantHash data = article({});
-        data[RSS::Article::KeyTorrentSize] = QVariant(double(FIVE_GIB));
+        data[RSS::Article::KeyTorrentSize] = FIVE_GIB;
+        const QByteArray stored = QJsonDocument(QJsonObject::fromVariantHash(data)).toJson();
 
-        QVERIFY(!rule.matches(data));
+        QVERIFY(!rule.matches(QJsonDocument::fromJson(stored).object().toVariantHash()));
     }
 
     void testOtherFiltersStillApply() const
@@ -250,6 +280,9 @@ private slots:
 
         QVERIFY(!rule.matches(article(u"1 GiB"_s)));
         QVERIFY(!rule.matches(article(u"Movies / SD"_s)));
+
+        rule.setMustContain(u"Some Show"_s);
+        QVERIFY(rule.matches(article(u"1 GiB"_s)));
     }
 
     void testRejectedSizeIsNotRecordedAsMatch() const
@@ -266,24 +299,59 @@ private slots:
 
     void testSizeLimitsSurviveJsonRoundTrip() const
     {
-        RSS::AutoDownloadRule rule {u"rule"_s};
-        rule.setMinSize(ONE_GIB);
-        rule.setMaxSize(FIVE_GIB);
+        // Both limits are too large for an int
+        const qint64 minSize = FIVE_GIB;
+        const qint64 maxSize = 2 * FIVE_GIB;
 
-        const QJsonObject json = rule.toJsonObject();
-        QCOMPARE(json.value(u"minSize"_s).toInteger(), ONE_GIB);
-        QCOMPARE(json.value(u"maxSize"_s).toInteger(), FIVE_GIB);
+        RSS::AutoDownloadRule rule {u"rule"_s};
+        rule.setMinSize(minSize);
+        rule.setMaxSize(maxSize);
+
+        const QByteArray stored = QJsonDocument(rule.toJsonObject()).toJson();
+        const QJsonObject json = QJsonDocument::fromJson(stored).object();
+        QCOMPARE(json.value(u"minSize"_s).toInteger(), minSize);
+        QCOMPARE(json.value(u"maxSize"_s).toInteger(), maxSize);
 
         const RSS::AutoDownloadRule loaded = RSS::AutoDownloadRule::fromJsonObject(json, u"rule"_s);
-        QCOMPARE(loaded.minSize(), ONE_GIB);
-        QCOMPARE(loaded.maxSize(), FIVE_GIB);
+        QCOMPARE(loaded.minSize(), minSize);
+        QCOMPARE(loaded.maxSize(), maxSize);
+    }
+
+    void testHasValidSizeLimits_data() const
+    {
+        QTest::addColumn<QJsonObject>("ruleObj");
+        QTest::addColumn<bool>("expected");
+
+        QTest::newRow("no limits") << QJsonObject {} << true;
+        QTest::newRow("zero limits") << QJsonObject {{u"minSize"_s, 0}, {u"maxSize"_s, 0}} << true;
+        QTest::newRow("minimum without a maximum") << QJsonObject {{u"minSize"_s, FIVE_GIB}, {u"maxSize"_s, 0}} << true;
+        QTest::newRow("minimum below maximum") << QJsonObject {{u"minSize"_s, ONE_GIB}, {u"maxSize"_s, FIVE_GIB}} << true;
+        QTest::newRow("minimum equal to maximum") << QJsonObject {{u"minSize"_s, FIVE_GIB}, {u"maxSize"_s, FIVE_GIB}} << true;
+        QTest::newRow("minimum above maximum") << QJsonObject {{u"minSize"_s, FIVE_GIB}, {u"maxSize"_s, ONE_GIB}} << false;
+        QTest::newRow("negative minimum") << QJsonObject {{u"minSize"_s, -1}} << false;
+        QTest::newRow("negative maximum") << QJsonObject {{u"maxSize"_s, -1}} << false;
+        QTest::newRow("fraction") << QJsonObject {{u"maxSize"_s, 1.5}} << false;
+        QTest::newRow("string") << QJsonObject {{u"maxSize"_s, u"5 GiB"_s}} << false;
+        QTest::newRow("null") << QJsonObject {{u"minSize"_s, QJsonValue::Null}} << false;
+    }
+
+    void testHasValidSizeLimits() const
+    {
+        QFETCH(const QJsonObject, ruleObj);
+        QFETCH(const bool, expected);
+
+        QCOMPARE(RSS::AutoDownloadRule::hasValidSizeLimits(ruleObj), expected);
     }
 
     void testSizeLimitsSurviveLegacyRoundTrip() const
     {
+        // Both limits are too large for an int
+        const qint64 minSize = FIVE_GIB;
+        const qint64 maxSize = 2 * FIVE_GIB;
+
         RSS::AutoDownloadRule rule {u"rule"_s};
-        rule.setMinSize(ONE_GIB);
-        rule.setMaxSize(FIVE_GIB);
+        rule.setMinSize(minSize);
+        rule.setMaxSize(maxSize);
 
         // Legacy rules files are written with this stream version
         QByteArray data;
@@ -298,8 +366,8 @@ private slots:
         QCOMPARE(in.status(), QDataStream::Ok);
 
         const RSS::AutoDownloadRule loaded = RSS::AutoDownloadRule::fromLegacyDict(dict);
-        QCOMPARE(loaded.minSize(), ONE_GIB);
-        QCOMPARE(loaded.maxSize(), FIVE_GIB);
+        QCOMPARE(loaded.minSize(), minSize);
+        QCOMPARE(loaded.maxSize(), maxSize);
     }
 
     void testLegacyRuleWithoutSizeLimitsLoads() const
@@ -333,7 +401,7 @@ private slots:
 
     void testSizeLimitsAffectRuleEquality() const
     {
-        RSS::AutoDownloadRule left {u"rule"_s};
+        const RSS::AutoDownloadRule left {u"rule"_s};
         RSS::AutoDownloadRule right {u"rule"_s};
         QVERIFY(left == right);
 
@@ -380,6 +448,18 @@ private slots:
         QTest::newRow("no length")
             << u"<enclosure url=\"http://x/a.torrent\" type=\"application/x-bittorrent\"/>"_s
             << qint64(-1);
+        QTest::newRow("negative length")
+            << u"<enclosure url=\"http://x/a.torrent\" type=\"application/x-bittorrent\" length=\"-1\"/>"_s
+            << qint64(-1);
+        QTest::newRow("negative length of an untyped enclosure")
+            << u"<enclosure url=\"http://x/a.torrent\" length=\"-1\"/>"_s
+            << qint64(-1);
+        QTest::newRow("element with the name of the key")
+            << u"<torrentSize>not a number</torrentSize>"_s
+            << qint64(-1);
+        QTest::newRow("element with the name of the key doesn't replace the length")
+            << u"<enclosure url=\"http://x/a.torrent\" type=\"application/x-bittorrent\" length=\"5368709120\"/><torrentSize>1</torrentSize>"_s
+            << FIVE_GIB;
     }
 
     void testParserReadsEnclosureLength() const
@@ -392,6 +472,21 @@ private slots:
 
         const QVariant size = data.value(RSS::Article::KeyTorrentSize);
         QCOMPARE((size.isValid() ? size.toLongLong() : qint64(-1)), expected);
+    }
+
+    void testAtomElementDoesNotSetEnclosureLength() const
+    {
+        const QByteArray feed = "<?xml version=\"1.0\"?><feed xmlns=\"http://www.w3.org/2005/Atom\"><title>Feed</title>"
+                "<entry><title>Some Show</title><id>id-1</id><torrentSize>1</torrentSize></entry></feed>";
+
+        RSS::Private::Parser parser {{}};
+        const QSignalSpy spy {&parser, &RSS::Private::Parser::finished};
+        parser.parse(feed);
+
+        QCOMPARE(spy.count(), 1);
+        const auto result = spy.at(0).at(0).value<RSS::Private::ParsingResult>();
+        QCOMPARE(result.articles.size(), 1);
+        QVERIFY(!result.articles.first().contains(RSS::Article::KeyTorrentSize));
     }
 
     void testFilterUsesParsedEnclosureLength() const

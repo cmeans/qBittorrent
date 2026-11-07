@@ -184,17 +184,8 @@ void RSSController::setRuleAction()
 
     const auto jsonObj = QJsonDocument::fromJson(ruleDef).object();
 
-    // A limit that couldn't be read would otherwise become no limit, and a rule can download on its own
-    const QJsonValue minSizeValue = jsonObj.value(u"minSize"_s);
-    const QJsonValue maxSizeValue = jsonObj.value(u"maxSize"_s);
-    const qint64 minSize = minSizeValue.isUndefined() ? 0 : minSizeValue.toInteger(-1);
-    const qint64 maxSize = maxSizeValue.isUndefined() ? 0 : maxSizeValue.toInteger(-1);
-    if (minSize < 0)
-        throw APIError(APIErrorType::BadParams, tr("Invalid 'minSize' value"));
-    if (maxSize < 0)
-        throw APIError(APIErrorType::BadParams, tr("Invalid 'maxSize' value"));
-    if ((maxSize > 0) && (minSize > maxSize))
-        throw APIError(APIErrorType::BadParams, tr("'minSize' can't be greater than 'maxSize'"));
+    if (!RSS::AutoDownloadRule::hasValidSizeLimits(jsonObj))
+        throw APIError(APIErrorType::BadParams, tr("'minSize' and 'maxSize' must be non-negative integers, and 'minSize' can't be greater than a non-zero 'maxSize'"));
 
     RSS::AutoDownloader::instance()->setRule(RSS::AutoDownloadRule::fromJsonObject(jsonObj, ruleName));
 

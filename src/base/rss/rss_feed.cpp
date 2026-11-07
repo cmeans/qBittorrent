@@ -410,10 +410,20 @@ int Feed::updateArticles(const QList<QVariantHash> &loadedArticles)
         // If article has no publication date we use feed update time as a fallback.
         // To prevent processing of "out-of-limit" articles we must not assign dates
         // that are earlier than the dates of existing articles.
-        const Article *existingArticle = articleByGUID(article[Article::KeyId].toString());
+        Article *existingArticle = articleByGUID(article[Article::KeyId].toString());
         if (existingArticle)
         {
             dummyPubDate = existingArticle->date().addMSecs(-1);
+
+            // Articles saved by earlier versions don't have the enclosure length that rule size limits can need
+            const QVariant torrentSize = article.value(Article::KeyTorrentSize);
+            if (torrentSize.isValid() && !existingArticle->m_data.contains(Article::KeyTorrentSize))
+            {
+                existingArticle->m_data[Article::KeyTorrentSize] = torrentSize;
+                m_dirty = true;
+                storeDeferred();
+            }
+
             continue;
         }
 

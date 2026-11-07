@@ -534,8 +534,12 @@ void AutomatedRssDownloader::warnAboutInvalidSizeLimits()
     if (!m_currentRuleItem || !m_ui->ruleScrollArea->isEnabled() || hasValidSizeLimits())
         return;
 
-    QMessageBox::warning(this, tr("Invalid size limits")
-            , tr("Minimum size can't be greater than maximum size. The previous size limits of rule \"%1\" were kept.").arg(m_currentRuleItem->text()));
+    QMessageBox messageBox {QMessageBox::Warning, tr("Invalid size limits")
+            , tr("Minimum size can't be greater than maximum size. The previous size limits of rule \"%1\" were kept.").arg(m_currentRuleItem->text())
+            , QMessageBox::Ok, this};
+    // A rule name can come from an imported file and mustn't be shown as markup
+    messageBox.setTextFormat(Qt::PlainText);
+    messageBox.exec();
 }
 
 void AutomatedRssDownloader::done(const int result)

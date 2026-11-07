@@ -207,13 +207,13 @@
                             <input disabled type="text" id="episodeFilterText" class="fullWidth" autocorrect="off" autocapitalize="none">
                         </td>
                     </tr>
-                    <tr title="QBT_TR(Articles smaller than this size are filtered out, as are articles of unknown size. An article of exactly this size is kept. 0 for No Limit. Unit of this size limit. Units are 1024-based: 1 GiB = 1024 MiB. Sizes in feeds count the same way, even when written as GB or MB.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
+                    <tr title="QBT_TR(Articles smaller than this size are filtered out, as are articles of unknown size. An article of exactly this size is kept. 0 for No Limit.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
                         <td>
                             <label for="minSizeValue" class="noWrap">QBT_TR(Minimum Size:)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
                         </td>
                         <td class="fullWidth noWrap">
-                            <input disabled type="number" id="minSizeValue" min="0" max="1000" step=".01" value="0">
-                            <select disabled id="minSizeUnit" aria-label="QBT_TR(Min size prefix)QBT_TR[CONTEXT=SearchEngineWidget]">
+                            <input disabled required type="number" id="minSizeValue" min="0" max="1000" step=".01" value="0">
+                            <select disabled id="minSizeUnit" aria-label="QBT_TR(Min size prefix)QBT_TR[CONTEXT=SearchEngineWidget]" title="QBT_TR(Unit of this size limit. Units are 1024-based: 1 GiB = 1024 MiB. Sizes in feeds count the same way, even when written as GB or MB.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
                                 <option value="0">QBT_TR(B)QBT_TR[CONTEXT=misc]</option>
                                 <option value="1">QBT_TR(KiB)QBT_TR[CONTEXT=misc]</option>
                                 <option value="2" selected>QBT_TR(MiB)QBT_TR[CONTEXT=misc]</option>
@@ -225,13 +225,13 @@
                             QBT_TR((0 for No Limit))QBT_TR[CONTEXT=AutomatedRssDownloader]
                         </td>
                     </tr>
-                    <tr title="QBT_TR(Articles larger than this size are filtered out. Articles of unknown size aren't. An article of exactly this size is kept. 0 for No Limit. Unit of this size limit. Units are 1024-based: 1 GiB = 1024 MiB. Sizes in feeds count the same way, even when written as GB or MB.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
+                    <tr title="QBT_TR(Articles larger than this size are filtered out. Articles of unknown size aren't. An article of exactly this size is kept. 0 for No Limit.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
                         <td>
                             <label for="maxSizeValue" class="noWrap">QBT_TR(Maximum Size:)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
                         </td>
                         <td class="fullWidth noWrap">
-                            <input disabled type="number" id="maxSizeValue" min="0" max="1000" step=".01" value="0">
-                            <select disabled id="maxSizeUnit" aria-label="QBT_TR(Max size prefix)QBT_TR[CONTEXT=SearchEngineWidget]">
+                            <input disabled required type="number" id="maxSizeValue" min="0" max="1000" step=".01" value="0">
+                            <select disabled id="maxSizeUnit" aria-label="QBT_TR(Max size prefix)QBT_TR[CONTEXT=SearchEngineWidget]" title="QBT_TR(Unit of this size limit. Units are 1024-based: 1 GiB = 1024 MiB. Sizes in feeds count the same way, even when written as GB or MB.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
                                 <option value="0">QBT_TR(B)QBT_TR[CONTEXT=misc]</option>
                                 <option value="1">QBT_TR(KiB)QBT_TR[CONTEXT=misc]</option>
                                 <option value="2">QBT_TR(MiB)QBT_TR[CONTEXT=misc]</option>
@@ -427,9 +427,6 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
             input.click();
         };
 
-        document.getElementById("minSizeUnit").addEventListener("change", (event) => updateSizeMaximum("min"));
-        document.getElementById("maxSizeUnit").addEventListener("change", (event) => updateSizeMaximum("max"));
-
         document.getElementById("rssRulesFileInput").addEventListener("change", (event) => {
             const file = document.getElementById("rssRulesFileInput").files[0];
             if (!file)
@@ -566,6 +563,8 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
             document.getElementById("savetoDifferentDir").addEventListener("click", (event) => {
                 document.getElementById("saveToText").disabled = !event.target.checked;
             });
+            document.getElementById("minSizeUnit").addEventListener("change", (event) => updateSizeMaximum("min"));
+            document.getElementById("maxSizeUnit").addEventListener("change", (event) => updateSizeMaximum("max"));
             updateRulesList();
         };
 
@@ -758,11 +757,11 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
         };
 
         const saveSettings = () => {
-            // Check against the selected units, since 8 EiB would be stored as no limit
+            // Check against the selected units, since the server would refuse 8 EiB
             updateSizeMaximum("min");
             updateSizeMaximum("max");
 
-            // An invalid number input reads as empty, which would silently remove the limit
+            // Unreadable text and an empty field both read as empty, which would silently remove the limit
             if (!document.getElementById("minSizeValue").validity.valid) {
                 alert("QBT_TR(Minimum size must be between 0 and 1000 with at most 2 decimal places. The EiB maximum is 7.99.)QBT_TR[CONTEXT=AutomatedRssDownloader]");
                 return;

@@ -68,7 +68,13 @@ const QString RULES_FILE_NAME = u"download_rules.json"_s;
 
 namespace
 {
-    QList<RSS::AutoDownloadRule> rulesFromJSON(const QByteArray &jsonData)
+    enum class InvalidSizeLimitsAction
+    {
+        RejectData,
+        DisableRule
+    };
+
+    QList<RSS::AutoDownloadRule> rulesFromJSON(const QByteArray &jsonData, const InvalidSizeLimitsAction invalidSizeLimitsAction)
     {
         QJsonParseError jsonError;
         const QJsonDocument jsonDoc = QJsonDocument::fromJson(jsonData, &jsonError);
@@ -86,7 +92,19 @@ namespace
             if (!jsonVal.isObject())
                 throw RSS::ParsingError(RSS::AutoDownloader::tr("Invalid data format."));
 
-            rules.append(RSS::AutoDownloadRule::fromJsonObject(jsonVal.toObject(), it.key()));
+            const QJsonObject ruleObj = jsonVal.toObject();
+            RSS::AutoDownloadRule rule = RSS::AutoDownloadRule::fromJsonObject(ruleObj, it.key());
+            if (!RSS::AutoDownloadRule::hasValidSizeLimits(ruleObj))
+            {
+                if (invalidSizeLimitsAction == InvalidSizeLimitsAction::RejectData)
+                    throw RSS::ParsingError(RSS::AutoDownloader::tr("Rule \"%1\" has invalid size limits.").arg(it.key()));
+
+                // Losing every other rule would be worse, and a disabled rule can't download
+                rule.setEnabled(false);
+                LogMsg(RSS::AutoDownloader::tr("RSS rule \"%1\" was disabled because its size limits are invalid.").arg(it.key()), Log::WARNING);
+            }
+
+            rules.append(rule);
         }
 
         return rules;
@@ -298,7 +316,7 @@ QByteArray AutoDownloader::exportRulesToJSONFormat() const
 
 void AutoDownloader::importRulesFromJSONFormat(const QByteArray &data)
 {
-    for (const auto &rule : asConst(rulesFromJSON(data)))
+    for (const auto &rule : asConst(rulesFromJSON(data, InvalidSizeLimitsAction::RejectData)))
         setRule(rule);
 }
 
@@ -551,7 +569,7 @@ void AutoDownloader::loadRules(const QByteArray &data)
 {
     try
     {
-        const auto rules = rulesFromJSON(data);
+        const auto rules = rulesFromJSON(data, InvalidSizeLimitsAction::DisableRule);
         for (const auto &rule : rules)
             setRule_impl(rule);
         sortRules();

@@ -661,6 +661,11 @@ void RSS::Private::Parser::parseRssArticle(QXmlStreamReader &xml)
             {
                 article[Article::KeyId] = xml.readElementText().trimmed();
             }
+            else if (name == Article::KeyTorrentSize)
+            {
+                // This key holds the enclosure length, and an element mustn't replace it
+                xml.skipCurrentElement();
+            }
             else
             {
                 article[name] = xml.readElementText(QXmlStreamReader::IncludeChildElements);
@@ -784,6 +789,11 @@ void RSS::Private::Parser::parseAtomArticle(QXmlStreamReader &xml)
             else if (name == u"id")
             {
                 article[Article::KeyId] = xml.readElementText().trimmed();
+            }
+            else if (name == Article::KeyTorrentSize)
+            {
+                // This key holds the enclosure length, and an element mustn't replace it
+                xml.skipCurrentElement();
             }
             else
             {
