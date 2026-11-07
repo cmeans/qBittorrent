@@ -194,9 +194,18 @@ private slots:
         QTest::newRow("end of a word before unit") << qint64(0) << qint64(1) << u"x264 GB"_s << true;
         QTest::newRow("too large to store") << qint64(0) << qint64(1) << u"99999999 PiB"_s << true;
         QTest::newRow("space between thousands") << qint64(0) << qint64(1) << u"1 234 MiB"_s << true;
-        QTest::newRow("no-break space between thousands") << qint64(0) << qint64(1) << u"1 234 MiB"_s << true;
+        QTest::newRow("no-break space between thousands") << qint64(0) << qint64(1) << u"1\u00A0234 MiB"_s << true;
+        QTest::newRow("thin space between thousands") << qint64(0) << qint64(1) << u"1\u2009234 MiB"_s << true;
         QTest::newRow("HTML no-break space between thousands") << qint64(0) << qint64(1) << u"1&nbsp;234 MiB"_s << true;
+        QTest::newRow("HTML no-break spaces around thousands") << qint64(0) << qint64(1) << u"1&nbsp;234&nbsp;MiB"_s << true;
+        QTest::newRow("HTML no-break space before unit only") << qint64(0) << qint64(1) << u"1 234&nbsp;MiB"_s << true;
+        QTest::newRow("HTML numeric no-break space between thousands") << qint64(0) << qint64(1) << u"1&#160;234 MiB"_s << true;
+        QTest::newRow("HTML hexadecimal no-break space between thousands") << qint64(0) << qint64(1) << u"1&#xA0;234 MiB"_s << true;
+        QTest::newRow("HTML thin space between thousands") << qint64(0) << qint64(1) << u"1&thinsp;234 MiB"_s << true;
+        QTest::newRow("HTML numeric thin space between thousands") << qint64(0) << qint64(1) << u"1&#8201;234 MiB"_s << true;
+        QTest::newRow("HTML hexadecimal thin space between thousands") << qint64(0) << qint64(1) << u"1&#x2009;234 MiB"_s << true;
         QTest::newRow("apostrophe between thousands") << qint64(0) << qint64(1) << u"1'234 MiB"_s << true;
+        QTest::newRow("typographic apostrophe between thousands") << qint64(0) << qint64(1) << u"1\u2019234 MiB"_s << true;
         QTest::newRow("space between thousands with decimals") << qint64(0) << qint64(1) << u"1 234,5 MiB"_s << true;
         QTest::newRow("short number before three digits") << qint64(0) << qint64(1) << u"Files: 3 700 MiB"_s << true;
     }

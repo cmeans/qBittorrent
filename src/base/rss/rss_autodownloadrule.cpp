@@ -109,12 +109,12 @@ namespace
     {
         // Captures: number with thousands separators, or plain number, then the unit prefix
         // The spacing can be any Unicode space, &nbsp; or &thinsp;, the last two also as numeric references.
-        // An unspaced range ("1-2 GiB") and a rate ("10 MB/s", "10 MB per second") aren't sizes.
+        // An unspaced range ("1-2 GiB") and a rate in the common forms ("10 MB/s", "10 MB per second") aren't sizes.
         static const QRegularExpression sizeRegex {uR"((?<![\w.,])(?<!\d[-\x{2013}])(?:(\d{1,3}(?:,\d{3})+(?:\.\d+)?)|(\d+(?:[.,]\d+)?))(?:[\s\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;|&#x2009;)*([KMGTP])i?B\b(?!/(?:s|sec|second)\b|[\s\p{Zs}]+per[\s\p{Zs}]+(?:s|sec|second)\b))"_s
             , QRegularExpression::CaseInsensitiveOption};
         // "1 234 MiB" could be one number or a number before a size ("Files: 3 700 MiB").
         // Reading only the last group could be off by a factor of 1000, so such a size is unknown.
-        static const QRegularExpression spaceGroupedSizeRegex {uR"((?<![\w.,])\d{1,3}(?:(?:[ '\x{A0}\x{202F}]|&nbsp;)\d{3})+(?:[.,]\d+)?[\s\p{Zs}]*[KMGTP]i?B\b)"_s
+        static const QRegularExpression spaceGroupedSizeRegex {uR"((?<![\w.,])\d{1,3}(?:(?:[ '\x{2019}\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;|&#x2009;)\d{3})+(?:[.,]\d+)?(?:[\s\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;|&#x2009;)*[KMGTP]i?B\b)"_s
             , QRegularExpression::CaseInsensitiveOption};
         // A link can contain something that looks like a size
         static const QRegularExpression htmlTagRegex {uR"(</?[a-zA-Z][^<>]*>)"_s};
