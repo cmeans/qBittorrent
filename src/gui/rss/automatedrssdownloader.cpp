@@ -234,14 +234,19 @@ AutomatedRssDownloader::AutomatedRssDownloader(QWidget *parent)
     connect(m_ui->spinMaxSize, qOverload<double>(&QDoubleSpinBox::valueChanged)
             , this, &AutomatedRssDownloader::updateSizeLimitsValidity);
 
-    QStringList sizeUnits;
-    for (const SizeUnit unit : {SizeUnit::Byte, SizeUnit::KibiByte, SizeUnit::MebiByte, SizeUnit::GibiByte
-            , SizeUnit::TebiByte, SizeUnit::PebiByte, SizeUnit::ExbiByte})
-    {
-        sizeUnits.append(Utils::Misc::unitString(unit));
-    }
-    for (auto *comboBox : {m_ui->comboMinSizeUnit, m_ui->comboMaxSizeUnit})
-        comboBox->addItems(sizeUnits);
+    using Utils::Misc::unitString;
+
+    QStringList unitStrings;
+    unitStrings.append(unitString(SizeUnit::Byte));
+    unitStrings.append(unitString(SizeUnit::KibiByte));
+    unitStrings.append(unitString(SizeUnit::MebiByte));
+    unitStrings.append(unitString(SizeUnit::GibiByte));
+    unitStrings.append(unitString(SizeUnit::TebiByte));
+    unitStrings.append(unitString(SizeUnit::PebiByte));
+    unitStrings.append(unitString(SizeUnit::ExbiByte));
+
+    m_ui->comboMinSizeUnit->addItems(unitStrings);
+    m_ui->comboMaxSizeUnit->addItems(unitStrings);
     connect(m_ui->comboMinSizeUnit, qOverload<int>(&QComboBox::currentIndexChanged), this, &AutomatedRssDownloader::handleRuleDefinitionChanged);
     connect(m_ui->comboMinSizeUnit, qOverload<int>(&QComboBox::currentIndexChanged), this, &AutomatedRssDownloader::updateSizeLimitsValidity);
     connect(m_ui->comboMaxSizeUnit, qOverload<int>(&QComboBox::currentIndexChanged), this, &AutomatedRssDownloader::handleRuleDefinitionChanged);
