@@ -96,7 +96,7 @@ namespace
         while ((unit > 0) && (bytes < Utils::Misc::sizeInBytes(1, static_cast<SizeUnit>(unit))))
             --unit;
 
-        const auto roundedValue = [bytes](const SizeUnit sizeUnit)
+        const auto roundedValue = [bytes](const SizeUnit sizeUnit) -> double
         {
             const double value = static_cast<double>(bytes) / Utils::Misc::sizeInBytes(1, sizeUnit);
             return QString::number(value, 'f', 2).toDouble();
