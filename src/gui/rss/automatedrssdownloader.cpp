@@ -36,6 +36,7 @@
 #include <QComboBox>
 #include <QCursor>
 #include <QDoubleSpinBox>
+#include <QEvent>
 #include <QFileDialog>
 #include <QMenu>
 #include <QMessageBox>
@@ -80,6 +81,18 @@ namespace
         SizeUnit unit = SizeUnit::Byte;
     };
 
+    class WheelEventEater final : public QObject
+    {
+    public:
+        using QObject::QObject;
+
+    private:
+        bool eventFilter(QObject *, QEvent *event) override
+        {
+            return (event->type() == QEvent::Wheel);
+        }
+    };
+
     // 8 EiB doesn't fit in the stored size
     double maximumSizeValue(const SizeUnit unit)
     {
@@ -122,7 +135,6 @@ namespace
 
         const ShownSize shown = sizeToShow(bytes, defaultUnit);
         comboBox->setCurrentIndex(static_cast<int>(shown.unit));
-        spinBox->setMaximum(maximumSizeValue(shown.unit));
         spinBox->setValue(shown.value);
     }
 
@@ -239,16 +251,13 @@ AutomatedRssDownloader::AutomatedRssDownloader(QWidget *parent)
     }
     for (auto *comboBox : {m_ui->comboMinSizeUnit, m_ui->comboMaxSizeUnit})
         comboBox->addItems(sizeUnits);
-    connect(m_ui->comboMinSizeUnit, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](const int index) -> void
-    {
-        m_ui->spinMinSize->setMaximum(maximumSizeValue(static_cast<SizeUnit>(index)));
-        handleRuleDefinitionChanged();
-    });
-    connect(m_ui->comboMaxSizeUnit, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](const int index) -> void
-    {
-        m_ui->spinMaxSize->setMaximum(maximumSizeValue(static_cast<SizeUnit>(index)));
-        handleRuleDefinitionChanged();
-    });
+    connect(m_ui->comboMinSizeUnit, qOverload<int>(&QComboBox::currentIndexChanged), this, &AutomatedRssDownloader::handleRuleDefinitionChanged);
+    connect(m_ui->comboMaxSizeUnit, qOverload<int>(&QComboBox::currentIndexChanged), this, &AutomatedRssDownloader::handleRuleDefinitionChanged);
+
+    // Scrolling the rule definition mustn't change a limit that a rule goes on to use unattended
+    auto *wheelEventEater = new WheelEventEater(this);
+    for (QWidget *widget : std::initializer_list<QWidget *> {m_ui->spinMinSize, m_ui->comboMinSizeUnit, m_ui->spinMaxSize, m_ui->comboMaxSizeUnit})
+        widget->installEventFilter(wheelEventEater);
 
     connect(m_ui->listFeeds, &QListWidget::itemChanged, this, &AutomatedRssDownloader::handleFeedCheckStateChange);
 
@@ -514,6 +523,14 @@ qint64 AutomatedRssDownloader::editedMaxSize() const
 
 bool AutomatedRssDownloader::hasValidSizeLimits() const
 {
+    // The fields accept the same value in every unit, so that changing the unit doesn't change the value
+    const auto fitsUnit = [](const QDoubleSpinBox *spinBox, const QComboBox *comboBox) -> bool
+    {
+        return (spinBox->value() <= maximumSizeValue(static_cast<SizeUnit>(comboBox->currentIndex())));
+    };
+    if (!fitsUnit(m_ui->spinMinSize, m_ui->comboMinSizeUnit) || !fitsUnit(m_ui->spinMaxSize, m_ui->comboMaxSizeUnit))
+        return false;
+
     const qint64 minSize = editedMinSize();
     const qint64 maxSize = editedMaxSize();
 
@@ -535,7 +552,7 @@ void AutomatedRssDownloader::warnAboutInvalidSizeLimits()
         return;
 
     QMessageBox messageBox {QMessageBox::Warning, tr("Invalid size limits")
-            , tr("Minimum size can't be greater than maximum size. The previous size limits of rule \"%1\" were kept.").arg(m_currentRuleItem->text())
+            , tr("Minimum size can't be greater than maximum size, and the largest size in EiB is 7.99. The previous size limits of rule \"%1\" were kept.").arg(m_currentRuleItem->text())
             , QMessageBox::Ok, this};
     // A rule name can come from an imported file and mustn't be shown as markup
     messageBox.setTextFormat(Qt::PlainText);
