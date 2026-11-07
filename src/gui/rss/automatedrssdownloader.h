@@ -79,6 +79,7 @@ private slots:
     void updateMustLineValidity();
     void updateMustNotLineValidity();
     void updateEpisodeFilterValidity();
+    void updateSizeLimitsValidity();
     void handleRuleDefinitionChanged();
     void handleRuleAdded(const QString &ruleName);
     void handleRuleRenamed(const QString &ruleName, const QString &oldRuleName);
@@ -95,6 +96,8 @@ private:
     void updateEditedRule();
     void updateMatchingArticles();
     void saveEditedRule();
+    qint64 editedMinSize() const;
+    qint64 editedMaxSize() const;
     void loadFeedList();
     void updateFeedList();
     void addFeedArticlesToTree(RSS::Feed *feed, const QStringList &articles);
