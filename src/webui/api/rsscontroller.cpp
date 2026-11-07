@@ -183,10 +183,6 @@ void RSSController::setRuleAction()
     const QByteArray ruleDef {params()[u"ruleDef"_s].toUtf8()};
 
     const auto jsonObj = QJsonDocument::fromJson(ruleDef).object();
-
-    if (!RSS::AutoDownloadRule::hasValidSizeLimits(jsonObj))
-        throw APIError(APIErrorType::BadParams, tr("'minSize' and 'maxSize' must be non-negative integers, and 'minSize' can't be greater than a non-zero 'maxSize'"));
-
     RSS::AutoDownloader::instance()->setRule(RSS::AutoDownloadRule::fromJsonObject(jsonObj, ruleName));
 
     setResult(QString());

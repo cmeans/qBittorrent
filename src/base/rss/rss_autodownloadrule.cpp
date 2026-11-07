@@ -586,17 +586,6 @@ QJsonObject AutoDownloadRule::toJsonObject() const
     };
 }
 
-bool AutoDownloadRule::hasValidSizeLimits(const QJsonObject &jsonObj)
-{
-    // A limit that couldn't be read would otherwise become no limit, and a rule can download on its own
-    const QJsonValue minSizeValue = jsonObj.value(S_MIN_SIZE);
-    const QJsonValue maxSizeValue = jsonObj.value(S_MAX_SIZE);
-    const qint64 minSize = minSizeValue.isUndefined() ? 0 : minSizeValue.toInteger(-1);
-    const qint64 maxSize = maxSizeValue.isUndefined() ? 0 : maxSizeValue.toInteger(-1);
-
-    return (minSize >= 0) && (maxSize >= 0) && ((maxSize == 0) || (minSize <= maxSize));
-}
-
 AutoDownloadRule AutoDownloadRule::fromJsonObject(const QJsonObject &jsonObj, const QString &name)
 {
     AutoDownloadRule rule {(name.isEmpty() ? jsonObj.value(S_NAME).toString() : name)};
@@ -692,9 +681,7 @@ QVariantHash AutoDownloadRule::toLegacyDict() const
         {u"add_paused"_s, toAddPausedLegacy(addTorrentParams.addStopped)},
         {u"episode_filter"_s, episodeFilter()},
         {u"last_match"_s, lastMatch()},
-        {u"ignore_days"_s, ignoreDays()},
-        {u"min_size"_s, minSize()},
-        {u"max_size"_s, maxSize()}};
+        {u"ignore_days"_s, ignoreDays()}};
 }
 
 AutoDownloadRule AutoDownloadRule::fromLegacyDict(const QVariantHash &dict)
@@ -716,8 +703,6 @@ AutoDownloadRule AutoDownloadRule::fromLegacyDict(const QVariantHash &dict)
     rule.setEnabled(dict.value(u"enabled"_s, false).toBool());
     rule.setLastMatch(dict.value(u"last_match"_s).toDateTime());
     rule.setIgnoreDays(dict.value(u"ignore_days"_s).toInt());
-    rule.setMinSize(dict.value(u"min_size"_s).toLongLong());
-    rule.setMaxSize(dict.value(u"max_size"_s).toLongLong());
     rule.setAddTorrentParams(addTorrentParams);
 
     return rule;

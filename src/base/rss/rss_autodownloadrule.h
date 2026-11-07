@@ -98,7 +98,6 @@ namespace RSS
 
         QJsonObject toJsonObject() const;
         static AutoDownloadRule fromJsonObject(const QJsonObject &jsonObj, const QString &name = {});
-        static bool hasValidSizeLimits(const QJsonObject &jsonObj);
 
         QVariantHash toLegacyDict() const;
         static AutoDownloadRule fromLegacyDict(const QVariantHash &dict);

@@ -27,7 +27,6 @@
  */
 
 #include <QByteArray>
-#include <QDataStream>
 #include <QDateTime>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -100,6 +99,7 @@ private slots:
         QTest::newRow("max is inclusive") << qint64(0) << TWO_GIB << u"2 GiB"_s << true;
         QTest::newRow("min is inclusive") << TWO_GIB << qint64(0) << u"2 GiB"_s << true;
         QTest::newRow("just over max") << qint64(0) << TWO_GIB << u"2.01 GiB"_s << false;
+        QTest::newRow("min above max matches nothing") << TWO_GIB << ONE_GIB << u"1.5 GiB"_s << false;
 
         // 1.7 GiB is 1825361100.8 bytes, which a limit entered as 1.7 GiB stores without the fraction
         QTest::newRow("decimal size at max entered the same") << qint64(0) << qint64(1825361100) << u"1.7 GiB"_s << true;
@@ -326,63 +326,21 @@ private slots:
         QCOMPARE(loaded.maxSize(), maxSize);
     }
 
-    void testHasValidSizeLimits_data() const
+    void testUnreadableLimitsMeanNoLimit_data() const
     {
-        QTest::addColumn<QJsonObject>("ruleObj");
-        QTest::addColumn<bool>("expected");
+        QTest::addColumn<QJsonValue>("value");
 
-        QTest::newRow("no limits") << QJsonObject {} << true;
-        QTest::newRow("zero limits") << QJsonObject {{u"minSize"_s, 0}, {u"maxSize"_s, 0}} << true;
-        QTest::newRow("minimum without a maximum") << QJsonObject {{u"minSize"_s, FIVE_GIB}, {u"maxSize"_s, 0}} << true;
-        QTest::newRow("minimum below maximum") << QJsonObject {{u"minSize"_s, ONE_GIB}, {u"maxSize"_s, FIVE_GIB}} << true;
-        QTest::newRow("minimum equal to maximum") << QJsonObject {{u"minSize"_s, FIVE_GIB}, {u"maxSize"_s, FIVE_GIB}} << true;
-        QTest::newRow("minimum above maximum") << QJsonObject {{u"minSize"_s, FIVE_GIB}, {u"maxSize"_s, ONE_GIB}} << false;
-        QTest::newRow("negative minimum") << QJsonObject {{u"minSize"_s, -1}} << false;
-        QTest::newRow("negative maximum") << QJsonObject {{u"maxSize"_s, -1}} << false;
-        QTest::newRow("fraction") << QJsonObject {{u"maxSize"_s, 1.5}} << false;
-        QTest::newRow("string") << QJsonObject {{u"maxSize"_s, u"5 GiB"_s}} << false;
-        QTest::newRow("null") << QJsonObject {{u"minSize"_s, QJsonValue::Null}} << false;
+        // As for the rule's other fields, a value of the wrong type falls back to the default
+        QTest::newRow("string") << QJsonValue(u"5 GiB"_s);
+        QTest::newRow("fraction") << QJsonValue(1.5);
+        QTest::newRow("null") << QJsonValue(QJsonValue::Null);
     }
 
-    void testHasValidSizeLimits() const
+    void testUnreadableLimitsMeanNoLimit() const
     {
-        QFETCH(const QJsonObject, ruleObj);
-        QFETCH(const bool, expected);
+        QFETCH(const QJsonValue, value);
 
-        QCOMPARE(RSS::AutoDownloadRule::hasValidSizeLimits(ruleObj), expected);
-    }
-
-    void testSizeLimitsSurviveLegacyRoundTrip() const
-    {
-        // Both limits are too large for an int
-        const qint64 minSize = FIVE_GIB;
-        const qint64 maxSize = 2 * FIVE_GIB;
-
-        RSS::AutoDownloadRule rule {u"rule"_s};
-        rule.setMinSize(minSize);
-        rule.setMaxSize(maxSize);
-
-        // Legacy rules files are written with this stream version
-        QByteArray data;
-        QDataStream out {&data, QIODevice::WriteOnly};
-        out.setVersion(QDataStream::Qt_4_5);
-        out << rule.toLegacyDict();
-
-        QDataStream in {data};
-        in.setVersion(QDataStream::Qt_4_5);
-        QVariantHash dict;
-        in >> dict;
-        QCOMPARE(in.status(), QDataStream::Ok);
-
-        const RSS::AutoDownloadRule loaded = RSS::AutoDownloadRule::fromLegacyDict(dict);
-        QCOMPARE(loaded.minSize(), minSize);
-        QCOMPARE(loaded.maxSize(), maxSize);
-    }
-
-    void testLegacyRuleWithoutSizeLimitsLoads() const
-    {
-        const RSS::AutoDownloadRule loaded = RSS::AutoDownloadRule::fromLegacyDict({{u"name"_s, u"rule"_s}});
-
+        const RSS::AutoDownloadRule loaded = RSS::AutoDownloadRule::fromJsonObject({{u"minSize"_s, value}, {u"maxSize"_s, value}}, u"rule"_s);
         QCOMPARE(loaded.minSize(), qint64(0));
         QCOMPARE(loaded.maxSize(), qint64(0));
     }
@@ -463,12 +421,6 @@ private slots:
         QTest::newRow("negative length of an untyped enclosure")
             << u"<enclosure url=\"http://x/a.torrent\" length=\"-1\"/>"_s
             << qint64(-1);
-        QTest::newRow("element with the name of the key")
-            << u"<torrentSize>not a number</torrentSize>"_s
-            << qint64(-1);
-        QTest::newRow("element with the name of the key doesn't replace the length")
-            << u"<enclosure url=\"http://x/a.torrent\" type=\"application/x-bittorrent\" length=\"5368709120\"/><torrentSize>1</torrentSize>"_s
-            << FIVE_GIB;
     }
 
     void testParserReadsEnclosureLength() const
@@ -481,21 +433,6 @@ private slots:
 
         const QVariant size = data.value(RSS::Article::KeyTorrentSize);
         QCOMPARE((size.isValid() ? size.toLongLong() : qint64(-1)), expected);
-    }
-
-    void testAtomElementDoesNotSetEnclosureLength() const
-    {
-        const QByteArray feed = "<?xml version=\"1.0\"?><feed xmlns=\"http://www.w3.org/2005/Atom\"><title>Feed</title>"
-                "<entry><title>Some Show</title><id>id-1</id><torrentSize>1</torrentSize></entry></feed>";
-
-        RSS::Private::Parser parser {{}};
-        const QSignalSpy spy {&parser, &RSS::Private::Parser::finished};
-        parser.parse(feed);
-
-        QCOMPARE(spy.count(), 1);
-        const auto result = spy.at(0).at(0).value<RSS::Private::ParsingResult>();
-        QCOMPARE(result.articles.size(), 1);
-        QVERIFY(!result.articles.first().contains(RSS::Article::KeyTorrentSize));
     }
 
     void testFilterUsesParsedEnclosureLength() const

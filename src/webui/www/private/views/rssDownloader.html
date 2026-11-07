@@ -212,7 +212,7 @@
                             <label for="minSizeValue" class="noWrap">QBT_TR(Minimum Size:)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
                         </td>
                         <td class="fullWidth noWrap">
-                            <input disabled required type="number" id="minSizeValue" min="0" max="1000" step=".01" value="0">
+                            <input disabled type="number" id="minSizeValue" min="0" max="1000" step=".01" value="0">
                             <select disabled id="minSizeUnit" aria-label="QBT_TR(Min size prefix)QBT_TR[CONTEXT=SearchEngineWidget]" title="QBT_TR(Unit of this size limit. Units are 1024-based: 1 GiB = 1024 MiB. Sizes in feeds count the same way, even when written as GB or MB.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
                                 <option value="0">QBT_TR(B)QBT_TR[CONTEXT=misc]</option>
                                 <option value="1">QBT_TR(KiB)QBT_TR[CONTEXT=misc]</option>
@@ -230,7 +230,7 @@
                             <label for="maxSizeValue" class="noWrap">QBT_TR(Maximum Size:)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
                         </td>
                         <td class="fullWidth noWrap">
-                            <input disabled required type="number" id="maxSizeValue" min="0" max="1000" step=".01" value="0">
+                            <input disabled type="number" id="maxSizeValue" min="0" max="1000" step=".01" value="0">
                             <select disabled id="maxSizeUnit" aria-label="QBT_TR(Max size prefix)QBT_TR[CONTEXT=SearchEngineWidget]" title="QBT_TR(Unit of this size limit. Units are 1024-based: 1 GiB = 1024 MiB. Sizes in feeds count the same way, even when written as GB or MB.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
                                 <option value="0">QBT_TR(B)QBT_TR[CONTEXT=misc]</option>
                                 <option value="1">QBT_TR(KiB)QBT_TR[CONTEXT=misc]</option>
@@ -563,8 +563,6 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
             document.getElementById("savetoDifferentDir").addEventListener("click", (event) => {
                 document.getElementById("saveToText").disabled = !event.target.checked;
             });
-            document.getElementById("minSizeUnit").addEventListener("change", (event) => updateSizeMaximum("min"));
-            document.getElementById("maxSizeUnit").addEventListener("change", (event) => updateSizeMaximum("max"));
             updateRulesList();
         };
 
@@ -605,12 +603,9 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
                         ruleDef: JSON.stringify(rulesList[rule])
                     })
                 })
-                .then(async (response) => {
-                    if (!response.ok) {
-                        alert(await response.text());
-                        updateRulesList();
+                .then((response) => {
+                    if (!response.ok)
                         return;
-                    }
 
                     callback();
                 });
@@ -713,11 +708,6 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
 
         const sizeInBytes = (value, unit) => Math.trunc(value * (1024 ** unit));
 
-        const updateSizeMaximum = (prefix) => {
-            const unit = Number(document.getElementById(`${prefix}SizeUnit`).value);
-            document.getElementById(`${prefix}SizeValue`).max = maximumSizeValue(unit);
-        };
-
         const sizeToShow = (bytes, defaultUnit) => {
             if (bytes <= 0)
                 return { value: 0, unit: defaultUnit };
@@ -742,7 +732,6 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
             const shown = sizeToShow(bytes, defaultUnit);
             document.getElementById(`${prefix}SizeUnit`).value = shown.unit;
             document.getElementById(`${prefix}SizeValue`).value = shown.value;
-            updateSizeMaximum(prefix);
         };
 
         // A size that can only be shown rounded stays as it is until the user changes the fields
@@ -753,36 +742,15 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
             if ((unit === shown.unit) && (Math.abs(value - shown.value) < 0.001))
                 return currentBytes;
 
-            return sizeInBytes(value, unit);
+            return sizeInBytes(Math.min(value, maximumSizeValue(unit)), unit);
         };
 
         const saveSettings = () => {
-            // Check against the selected units, since the server would refuse 8 EiB
-            updateSizeMaximum("min");
-            updateSizeMaximum("max");
-
-            // Unreadable text and an empty field both read as empty, which would silently remove the limit
-            if (!document.getElementById("minSizeValue").validity.valid) {
-                alert("QBT_TR(Minimum size must be between 0 and 1000 with at most 2 decimal places. The EiB maximum is 7.99.)QBT_TR[CONTEXT=AutomatedRssDownloader]");
-                return;
-            }
-            if (!document.getElementById("maxSizeValue").validity.valid) {
-                alert("QBT_TR(Maximum size must be between 0 and 1000 with at most 2 decimal places. The EiB maximum is 7.99.)QBT_TR[CONTEXT=AutomatedRssDownloader]");
-                return;
-            }
-
             const lastSelectedRow = rssDownloaderRulesTable.selectedRows.at(-1);
             const rule = rssDownloaderRulesTable.getRow(lastSelectedRow).full_data.name;
 
             const minSize = editedSize("min", rulesList[rule].minSize, defaultMinSizeUnit);
             const maxSize = editedSize("max", rulesList[rule].maxSize, defaultMaxSizeUnit);
-
-            // Unlike the search size filter, which swaps such limits here and matches nothing on desktop:
-            // this rule is saved and runs unattended, so a mistake is better caught than guessed at or left to never match
-            if ((maxSize > 0) && (minSize > maxSize)) {
-                alert("QBT_TR(Minimum size can't be greater than maximum size.)QBT_TR[CONTEXT=AutomatedRssDownloader]");
-                return;
-            }
 
             rulesList[rule].useRegex = document.getElementById("useRegEx").checked;
             rulesList[rule].mustContain = document.getElementById("mustContainText").value;
@@ -840,12 +808,9 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
                         ruleDef: JSON.stringify(rulesList[rule])
                     })
                 })
-                .then(async (response) => {
-                    if (!response.ok) {
-                        alert(await response.text());
-                        updateRulesList();
+                .then((response) => {
+                    if (!response.ok)
                         return;
-                    }
 
                     updateMatchingArticles(rule);
                 });

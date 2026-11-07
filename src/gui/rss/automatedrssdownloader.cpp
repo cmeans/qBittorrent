@@ -36,7 +36,6 @@
 #include <QComboBox>
 #include <QCursor>
 #include <QDoubleSpinBox>
-#include <QEvent>
 #include <QFileDialog>
 #include <QMenu>
 #include <QMessageBox>
@@ -79,18 +78,6 @@ namespace
     {
         double value = 0;
         SizeUnit unit = SizeUnit::Byte;
-    };
-
-    class WheelEventEater final : public QObject
-    {
-    public:
-        using QObject::QObject;
-
-    private:
-        bool eventFilter(QObject *, QEvent *event) override
-        {
-            return (event->type() == QEvent::Wheel);
-        }
     };
 
     // 8 EiB doesn't fit in the stored size
@@ -146,7 +133,7 @@ namespace
         if ((unit == shown.unit) && (std::abs(spinBox->value() - shown.value) < 0.001))
             return currentBytes;
 
-        return Utils::Misc::sizeInBytes(spinBox->value(), unit);
+        return Utils::Misc::sizeInBytes(std::min(spinBox->value(), maximumSizeValue(unit)), unit);
     }
 }
 
@@ -253,11 +240,6 @@ AutomatedRssDownloader::AutomatedRssDownloader(QWidget *parent)
         comboBox->addItems(sizeUnits);
     connect(m_ui->comboMinSizeUnit, qOverload<int>(&QComboBox::currentIndexChanged), this, &AutomatedRssDownloader::handleRuleDefinitionChanged);
     connect(m_ui->comboMaxSizeUnit, qOverload<int>(&QComboBox::currentIndexChanged), this, &AutomatedRssDownloader::handleRuleDefinitionChanged);
-
-    // Scrolling the rule definition mustn't change a limit that a rule goes on to use unattended
-    auto *wheelEventEater = new WheelEventEater(this);
-    for (QWidget *widget : std::initializer_list<QWidget *> {m_ui->spinMinSize, m_ui->comboMinSizeUnit, m_ui->spinMaxSize, m_ui->comboMaxSizeUnit})
-        widget->installEventFilter(wheelEventEater);
 
     connect(m_ui->listFeeds, &QListWidget::itemChanged, this, &AutomatedRssDownloader::handleFeedCheckStateChange);
 
@@ -384,10 +366,6 @@ void AutomatedRssDownloader::updateFeedList()
 
 void AutomatedRssDownloader::updateRuleDefinitionBox()
 {
-    // Rules can be removed while the warning is showing, so the selection has to be read after it
-    if (m_currentRuleItem && (m_ui->ruleList->selectedItems() != QList<QListWidgetItem *> {m_currentRuleItem}))
-        warnAboutInvalidSizeLimits();
-
     const QList<QListWidgetItem *> selection = m_ui->ruleList->selectedItems();
     QListWidgetItem *currentRuleItem = ((selection.count() == 1) ? selection.first() : nullptr);
 
@@ -492,11 +470,8 @@ void AutomatedRssDownloader::updateEditedRule()
     m_currentRule.setMustNotContain(m_ui->lineNotContains->text());
     m_currentRule.setEpisodeFilter(m_ui->lineEFilter->text());
     m_currentRule.setIgnoreDays(m_ui->spinIgnorePeriod->value());
-    // This runs on every keystroke, so limits have to fall back to the saved ones, not to what was last typed
-    const RSS::AutoDownloadRule savedRule = RSS::AutoDownloader::instance()->ruleByName(m_currentRule.name());
-    const bool isValid = hasValidSizeLimits();
-    m_currentRule.setMinSize(isValid ? editedMinSize() : savedRule.minSize());
-    m_currentRule.setMaxSize(isValid ? editedMaxSize() : savedRule.maxSize());
+    m_currentRule.setMinSize(editedMinSize());
+    m_currentRule.setMaxSize(editedMaxSize());
 
     m_currentRule.setAddTorrentParams(m_addTorrentParamsWidget->addTorrentParams());
 }
@@ -533,9 +508,6 @@ bool AutomatedRssDownloader::hasValidSizeLimits() const
 
     const qint64 minSize = editedMinSize();
     const qint64 maxSize = editedMaxSize();
-
-    // Unlike the search size filter, which matches nothing here and swaps such limits in the WebUI:
-    // this rule is saved and runs unattended, so a mistake is better caught than left to never match or guessed at
     return (maxSize <= 0) || (minSize <= maxSize);
 }
 
@@ -544,25 +516,6 @@ void AutomatedRssDownloader::updateSizeLimitsValidity()
     const QString styleSheet = hasValidSizeLimits() ? QString() : u"QDoubleSpinBox { color: #ff0000; }"_s;
     m_ui->spinMinSize->setStyleSheet(styleSheet);
     m_ui->spinMaxSize->setStyleSheet(styleSheet);
-}
-
-void AutomatedRssDownloader::warnAboutInvalidSizeLimits()
-{
-    if (!m_currentRuleItem || !m_ui->ruleScrollArea->isEnabled() || hasValidSizeLimits())
-        return;
-
-    QMessageBox messageBox {QMessageBox::Warning, tr("Invalid size limits")
-            , tr("Minimum size can't be greater than maximum size, and the largest size in EiB is 7.99. The previous size limits of rule \"%1\" were kept.").arg(m_currentRuleItem->text())
-            , QMessageBox::Ok, this};
-    // A rule name can come from an imported file and mustn't be shown as markup
-    messageBox.setTextFormat(Qt::PlainText);
-    messageBox.exec();
-}
-
-void AutomatedRssDownloader::done(const int result)
-{
-    warnAboutInvalidSizeLimits();
-    QDialog::done(result);
 }
 
 void AutomatedRssDownloader::onAddRuleBtnClicked()
