@@ -8,6 +8,11 @@
   * `torrents/info` and `sync/maindata` endpoints include `error` (string) data, the reason why the torrent is in `error` state (empty otherwise)
 * [#25092](https://github.com/qbittorrent/qBittorrent/pull/25092)
   * Add `torrents/cancelFetchMetadata` endpoint with `source` (string) as parameter for cancelling a metadata lookup started by `torrents/fetchMetadata` (accepts `POST` requests only)
+* `rss/rules` and `rss/exportRules` endpoints include `minSize` (int) and `maxSize` (int) data for each rule, the size limits in bytes; `0` means no limit
+* `rss/setRule` and `rss/importRules` endpoints accept `minSize` (int) and `maxSize` (int) for each rule; a value over `9211842821808707584` (7.99 EiB) that fits in a 64-bit integer is lowered to it; a negative number, a fraction, a value that isn't a number, or an integer too large for 64 bits means no limit
+* `rss/matchingArticles` endpoint applies the size limits, both inclusive; an article of unknown size passes `maxSize` and fails `minSize`, and a `minSize` greater than a non-zero `maxSize` matches no article
+  * The article size is its `size` element if that gives a size over 0, otherwise its enclosure length if that is at least 1 MiB, otherwise the larger of its enclosure length and a single size stated in its description
+* `rss/items` endpoint includes `torrentSize` (int) data, in bytes: the length of the enclosure that gives the article's `torrentURL`, if it has a length; some feeds give the size of the .torrent file there
 
 ## 2.16.2
 
