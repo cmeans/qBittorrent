@@ -74,7 +74,9 @@
         width: 100%;
     }
 
-    #ignoreDaysValue {
+    #ignoreDaysValue,
+    #minSizeValue,
+    #maxSizeValue {
         width: 5em;
     }
 
@@ -200,6 +202,40 @@
                         </td>
                         <td class="fullWidth">
                             <input disabled type="text" id="episodeFilterText" class="fullWidth" autocorrect="off" autocapitalize="none">
+                        </td>
+                    </tr>
+                    <tr title="QBT_TR(Articles smaller than this size are filtered out, as are articles of unknown size. An article of exactly this size is kept. 0 for No Limit.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
+                        <td>
+                            <label for="minSizeValue" class="noWrap">QBT_TR(Minimum Size (0 for No Limit):)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
+                        </td>
+                        <td class="fullWidth noWrap">
+                            <input disabled type="number" id="minSizeValue" min="0" max="1000" step=".01" value="0">
+                            <select disabled id="minSizeUnit" aria-label="QBT_TR(Min size prefix)QBT_TR[CONTEXT=SearchEngineWidget]" title="QBT_TR(Unit of this size limit. Units are 1024-based: 1 GiB = 1024 MiB. Sizes in feeds count the same way, even when written as GB or MB.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
+                                <option value="0">QBT_TR(B)QBT_TR[CONTEXT=misc]</option>
+                                <option value="1">QBT_TR(KiB)QBT_TR[CONTEXT=misc]</option>
+                                <option value="2" selected>QBT_TR(MiB)QBT_TR[CONTEXT=misc]</option>
+                                <option value="3">QBT_TR(GiB)QBT_TR[CONTEXT=misc]</option>
+                                <option value="4">QBT_TR(TiB)QBT_TR[CONTEXT=misc]</option>
+                                <option value="5">QBT_TR(PiB)QBT_TR[CONTEXT=misc]</option>
+                                <option value="6">QBT_TR(EiB)QBT_TR[CONTEXT=misc]</option>
+                            </select>
+                        </td>
+                    </tr>
+                    <tr title="QBT_TR(Articles larger than this size are filtered out. Articles of unknown size are kept unless a minimum size is set. An article of exactly this size is kept. 0 for No Limit.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
+                        <td>
+                            <label for="maxSizeValue" class="noWrap">QBT_TR(Maximum Size (0 for No Limit):)QBT_TR[CONTEXT=AutomatedRssDownloader]</label>
+                        </td>
+                        <td class="fullWidth noWrap">
+                            <input disabled type="number" id="maxSizeValue" min="0" max="1000" step=".01" value="0">
+                            <select disabled id="maxSizeUnit" aria-label="QBT_TR(Max size prefix)QBT_TR[CONTEXT=SearchEngineWidget]" title="QBT_TR(Unit of this size limit. Units are 1024-based: 1 GiB = 1024 MiB. Sizes in feeds count the same way, even when written as GB or MB.)QBT_TR[CONTEXT=AutomatedRssDownloader]">
+                                <option value="0">QBT_TR(B)QBT_TR[CONTEXT=misc]</option>
+                                <option value="1">QBT_TR(KiB)QBT_TR[CONTEXT=misc]</option>
+                                <option value="2">QBT_TR(MiB)QBT_TR[CONTEXT=misc]</option>
+                                <option value="3" selected>QBT_TR(GiB)QBT_TR[CONTEXT=misc]</option>
+                                <option value="4">QBT_TR(TiB)QBT_TR[CONTEXT=misc]</option>
+                                <option value="5">QBT_TR(PiB)QBT_TR[CONTEXT=misc]</option>
+                                <option value="6">QBT_TR(EiB)QBT_TR[CONTEXT=misc]</option>
+                            </select>
                         </td>
                     </tr>
                 </tbody>
@@ -657,15 +693,87 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
             });
         };
 
+        // Size units: B = 0, KiB = 1, MiB = 2, GiB = 3, TiB = 4, PiB = 5, EiB = 6
+        const exbiByteUnit = 6;
+        const defaultMinSizeUnit = 2;
+        const defaultMaxSizeUnit = 3;
+
+        // 8 EiB doesn't fit in the stored size
+        const maximumSizeValue = (unit) => ((unit === exbiByteUnit) ? 7.99 : 1000);
+
+        const sizeInBytes = (value, unit) => Math.trunc(value * Math.pow(1024, unit));
+
+        const sizeToShow = (bytes, defaultUnit) => {
+            if (bytes <= 0)
+                return { value: 0, unit: defaultUnit };
+
+            let unit = exbiByteUnit;
+            while ((unit > 0) && (bytes < Math.pow(1024, unit)))
+                --unit;
+
+            const roundedValue = (sizeUnit) => Number((bytes / Math.pow(1024, sizeUnit)).toFixed(2));
+
+            // A value under 1 can be the exact one, as in 0.99 GiB, which is too large to show in MiB
+            for (const candidate of [unit, unit + 1].filter((u) => u <= exbiByteUnit)) {
+                const rounded = roundedValue(candidate);
+                if ((rounded <= maximumSizeValue(candidate)) && (sizeInBytes(rounded, candidate) === bytes))
+                    return { value: rounded, unit: candidate };
+            }
+
+            // Over the maximum, such as 1010 MiB, the next unit is shown, since the maximum would look like an exact value
+            const value = roundedValue(unit);
+            if ((value > maximumSizeValue(unit)) && (unit < exbiByteUnit))
+                return { value: roundedValue(unit + 1), unit: unit + 1 };
+
+            return { value: Math.min(value, maximumSizeValue(unit)), unit: unit };
+        };
+
+        const isValidSizeValue = (prefix) => {
+            const input = document.getElementById(`${prefix}SizeValue`);
+            const unit = Number(document.getElementById(`${prefix}SizeUnit`).value);
+            return input.validity.valid && (input.value !== "") && (Number(input.value) <= maximumSizeValue(unit));
+        };
+
+        const showSize = (prefix, bytes, defaultUnit) => {
+            const shown = sizeToShow(bytes, defaultUnit);
+            document.getElementById(`${prefix}SizeUnit`).value = shown.unit;
+            document.getElementById(`${prefix}SizeValue`).value = shown.value;
+        };
+
+        // A size that can only be shown rounded stays as it is until the user changes the fields
+        const editedSize = (prefix, currentBytes, defaultUnit) => {
+            const value = Number(document.getElementById(`${prefix}SizeValue`).value);
+            const unit = Number(document.getElementById(`${prefix}SizeUnit`).value);
+            const shown = sizeToShow(currentBytes, defaultUnit);
+            if ((unit === shown.unit) && (Math.abs(value - shown.value) < 0.001))
+                return currentBytes;
+
+            return sizeInBytes(Math.min(value, maximumSizeValue(unit)), unit);
+        };
+
         const saveSettings = () => {
             const lastSelectedRow = rssDownloaderRulesTable.selectedRows.at(-1);
             const rule = rssDownloaderRulesTable.getRow(lastSelectedRow).full_data.name;
+
+            if (!isValidSizeValue("min") || !isValidSizeValue("max")) {
+                alert("QBT_TR(Size limits must be numbers from 0 to 1000 (up to 7.99 for EiB), with at most two decimal places.)QBT_TR[CONTEXT=AutomatedRssDownloader]");
+                return;
+            }
+
+            const minSize = editedSize("min", rulesList[rule].minSize, defaultMinSizeUnit);
+            const maxSize = editedSize("max", rulesList[rule].maxSize, defaultMaxSizeUnit);
+            if ((maxSize > 0) && (minSize > maxSize)) {
+                alert("QBT_TR(The minimum size can't be larger than the maximum size.)QBT_TR[CONTEXT=AutomatedRssDownloader]");
+                return;
+            }
 
             rulesList[rule].useRegex = document.getElementById("useRegEx").checked;
             rulesList[rule].mustContain = document.getElementById("mustContainText").value;
             rulesList[rule].mustNotContain = document.getElementById("mustNotContainText").value;
             rulesList[rule].episodeFilter = document.getElementById("episodeFilterText").value;
             rulesList[rule].smartFilter = document.getElementById("useSmartFilter").checked;
+            rulesList[rule].minSize = minSize;
+            rulesList[rule].maxSize = maxSize;
             rulesList[rule].ignoreDays = Number(document.getElementById("ignoreDaysValue").value);
             rulesList[rule].affectedFeeds = [...rssDownloaderFeedSelectionTable.getRowValues()]
                 .filter((row) => row.full_data.checked)
@@ -769,6 +877,10 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
                 document.getElementById("mustNotContainText").disabled = true;
                 document.getElementById("episodeFilterText").disabled = true;
                 document.getElementById("useSmartFilter").disabled = true;
+                document.getElementById("minSizeValue").disabled = true;
+                document.getElementById("minSizeUnit").disabled = true;
+                document.getElementById("maxSizeValue").disabled = true;
+                document.getElementById("maxSizeUnit").disabled = true;
                 document.getElementById("assignCategoryCombobox").disabled = true;
                 document.getElementById("ruleAddTags").disabled = true;
                 document.getElementById("savetoDifferentDir").disabled = true;
@@ -783,6 +895,8 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
                 document.getElementById("mustNotContainText").value = "";
                 document.getElementById("episodeFilterText").value = "";
                 document.getElementById("useSmartFilter").checked = false;
+                showSize("min", 0, defaultMinSizeUnit);
+                showSize("max", 0, defaultMaxSizeUnit);
                 document.getElementById("assignCategoryCombobox").value = "default";
                 document.getElementById("ruleAddTags").value = "";
                 document.getElementById("savetoDifferentDir").checked = false;
@@ -806,6 +920,10 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
                 document.getElementById("mustNotContainText").disabled = false;
                 document.getElementById("episodeFilterText").disabled = false;
                 document.getElementById("useSmartFilter").disabled = false;
+                document.getElementById("minSizeValue").disabled = false;
+                document.getElementById("minSizeUnit").disabled = false;
+                document.getElementById("maxSizeValue").disabled = false;
+                document.getElementById("maxSizeUnit").disabled = false;
                 document.getElementById("assignCategoryCombobox").disabled = false;
                 document.getElementById("ruleAddTags").disabled = false;
                 document.getElementById("savetoDifferentDir").disabled = false;
@@ -819,6 +937,8 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
                 document.getElementById("mustNotContainText").value = rulesList[ruleName].mustNotContain;
                 document.getElementById("episodeFilterText").value = rulesList[ruleName].episodeFilter;
                 document.getElementById("useSmartFilter").checked = rulesList[ruleName].smartFilter;
+                showSize("min", rulesList[ruleName].minSize, defaultMinSizeUnit);
+                showSize("max", rulesList[ruleName].maxSize, defaultMaxSizeUnit);
 
                 document.getElementById("assignCategoryCombobox").value = rulesList[ruleName].torrentParams.category ? rulesList[ruleName].torrentParams.category : "default";
                 document.getElementById("ruleAddTags").value = rulesList[ruleName].torrentParams.tags.join(",");
