@@ -114,7 +114,8 @@ namespace
             , QRegularExpression::CaseInsensitiveOption};
         // "1 234 MiB" could be one number or a number before a size ("Files: 3 700 MiB").
         // Reading only the last group could be off by a factor of 1000, so such a size is unknown.
-        static const QRegularExpression spaceGroupedSizeRegex {uR"((?<![\w.,])\d{1,3}(?:(?:[ '\x{2019}\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;|&#x2009;)\d{3})+(?:[.,]\d+)?(?:[\s\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;|&#x2009;)*[KMGTP]i?B\b)"_s
+        // A match can only start at the first group, and the groups aren't given back, so a long run of groups is checked in linear time.
+        static const QRegularExpression spaceGroupedSizeRegex {uR"((?<![\w.,])(?<!\d[ '\x{2019}\p{Zs}]|\d&nbsp;|\d&#160;|\d&#xA0;|\d&thinsp;|\d&#8201;|\d&#x2009;)\d{1,3}(?:(?:[ '\x{2019}\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;|&#x2009;)\d{3})++(?:[.,]\d+)?(?:[\s\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;|&#x2009;)*[KMGTP]i?B\b)"_s
             , QRegularExpression::CaseInsensitiveOption};
         // A link can contain something that looks like a size
         static const QRegularExpression htmlTagRegex {uR"(</?[a-zA-Z][^<>]*>)"_s};
@@ -132,7 +133,12 @@ namespace
             const double number = match.hasCaptured(1)
                 ? match.captured(1).remove(u',').toDouble()
                 : match.captured(2).replace(u',', u'.').toDouble();
-            const int exponent = 1 + static_cast<int>(QStringView(u"KMGTP").indexOf(match.capturedView(3).at(0).toUpper()));
+            // Case-insensitive matching also accepts letters such as the Kelvin sign, which aren't units
+            const qsizetype unitIndex = QStringView(u"KMGTP").indexOf(match.capturedView(3).at(0).toUpper());
+            if (unitIndex < 0)
+                return std::nullopt;
+
+            const int exponent = 1 + static_cast<int>(unitIndex);
             // All units are 1024-based, as for search results, whether or not they're written with an "i"
             const double size = number * std::pow(1024, exponent);
             if (size >= static_cast<double>(std::numeric_limits<qint64>::max()))
@@ -519,7 +525,6 @@ bool AutoDownloadRule::matches(const QVariantHash &articleData) const
         return false;
     if (!matchesMustNotContainExpression(articleTitle))
         return false;
-    // This must come before the smart filter, which records the episode of an article that gets this far
     if (!matchesSizeLimits(articleData))
         return false;
     if (!matchesEpisodeFilterExpression(articleTitle))

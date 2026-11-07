@@ -173,6 +173,7 @@ private slots:
         QTest::newRow("unknown size fails min and max") << qint64(1) << TWO_GIB << u"Movies / SD"_s << false;
         QTest::newRow("empty description fails min") << qint64(1) << qint64(0) << QString() << false;
         QTest::newRow("several sizes fail min") << qint64(1) << qint64(0) << u"1 GiB of 5 GiB"_s << false;
+        QTest::newRow("Kelvin sign isn't a unit") << qint64(1) << qint64(0) << u"1 KB"_s << false;
         QTest::newRow("no limits accept unknown size") << qint64(0) << qint64(0) << u"Movies / SD"_s << true;
 
         // The size is unknown in these, so the maximum (which they would otherwise fail) doesn't apply
@@ -208,7 +209,8 @@ private slots:
         QTest::newRow("typographic apostrophe between thousands") << qint64(0) << qint64(1) << u"1\u2019234 MiB"_s << true;
         QTest::newRow("space between thousands with decimals") << qint64(0) << qint64(1) << u"1 234,5 MiB"_s << true;
         QTest::newRow("short number before three digits") << qint64(0) << qint64(1) << u"Files: 3 700 MiB"_s << true;
-    }
+        QTest::newRow("long run of three digits before unit") << qint64(0) << qint64(1) << (u"Files: 3"_s + u" 700"_s.repeated(30000) + u" MiB"_s) << true;
+        QTest::newRow("long run of three digits without unit") << qint64(0) << qint64(1) << (u"Size 1"_s + u" 111"_s.repeated(30000) + u" big"_s) << true;    }
 
     void testMatchesSizeFromDescription() const
     {
@@ -268,7 +270,7 @@ private slots:
         QCOMPARE(rule.matches(data), expected);
     }
 
-    void testEnclosureLengthSurvivesStorage() const
+    void testEnclosureLengthSurvivesJsonRoundTrip() const
     {
         RSS::AutoDownloadRule rule {u"rule"_s};
         rule.setMaxSize(TWO_GIB);
@@ -294,7 +296,7 @@ private slots:
         QVERIFY(rule.matches(article(u"1 GiB"_s)));
     }
 
-    void testRejectedSizeIsNotRecordedAsMatch() const
+    void testRejectedSizeDoesNotSetLastMatch() const
     {
         RSS::AutoDownloadRule rule {u"rule"_s};
         rule.setMaxSize(TWO_GIB);
@@ -383,56 +385,77 @@ private slots:
     void testParserReadsEnclosureLength_data() const
     {
         QTest::addColumn<QString>("itemBody");
-        QTest::addColumn<qint64>("expected");
+        QTest::addColumn<QVariant>("expected");
+
+        const QVariant none;
 
         QTest::newRow("torrent enclosure")
             << u"<enclosure url=\"http://x/a.torrent\" type=\"application/x-bittorrent\" length=\"5368709120\"/>"_s
-            << FIVE_GIB;
+            << QVariant(FIVE_GIB);
         QTest::newRow("untyped enclosure")
             << u"<enclosure url=\"http://x/a.torrent\" length=\"1073741824\"/>"_s
-            << ONE_GIB;
+            << QVariant(ONE_GIB);
         QTest::newRow("torrent enclosure beats untyped")
             << u"<enclosure url=\"http://x/b\" length=\"1073741824\"/>"
                 "<enclosure url=\"http://x/a.torrent\" type=\"application/x-bittorrent\" length=\"5368709120\"/>"_s
-            << FIVE_GIB;
+            << QVariant(FIVE_GIB);
         QTest::newRow("other enclosure types are not the torrent")
             << u"<enclosure url=\"http://x/a.mp3\" type=\"audio/mpeg\" length=\"1073741824\"/>"_s
-            << qint64(-1);
+            << none;
         QTest::newRow("length of the torrent enclosure that is used")
             << u"<enclosure url=\"http://x/a.torrent\" type=\"application/x-bittorrent\" length=\"1073741824\"/>"
                 "<enclosure url=\"http://x/b.torrent\" type=\"application/x-bittorrent\" length=\"5368709120\"/>"_s
-            << FIVE_GIB;
+            << QVariant(FIVE_GIB);
+        QTest::newRow("length of the untyped enclosure that is used")
+            << u"<enclosure url=\"http://x/a.torrent\" length=\"1073741824\"/>"
+                "<enclosure url=\"http://x/b.torrent\" length=\"5368709120\"/>"_s
+            << QVariant(FIVE_GIB);
         QTest::newRow("no length left over from another torrent enclosure")
             << u"<enclosure url=\"http://x/a.torrent\" type=\"application/x-bittorrent\" length=\"1073741824\"/>"
                 "<enclosure url=\"http://x/b.torrent\" type=\"application/x-bittorrent\"/>"_s
-            << qint64(-1);
+            << none;
+        QTest::newRow("no length left over when the untyped enclosure is used")
+            << u"<enclosure url=\"\" type=\"application/x-bittorrent\" length=\"1073741824\"/>"
+                "<enclosure url=\"http://x/b.torrent\"/>"_s
+            << none;
+        QTest::newRow("untyped enclosure isn't used with a magnet link")
+            << u"<link>magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567</link>"
+                "<enclosure url=\"http://x/b.torrent\" length=\"1073741824\"/>"_s
+            << none;
         QTest::newRow("zero length")
             << u"<enclosure url=\"http://x/a.torrent\" type=\"application/x-bittorrent\" length=\"0\"/>"_s
-            << qint64(-1);
+            << none;
         QTest::newRow("unreadable length")
             << u"<enclosure url=\"http://x/a.torrent\" type=\"application/x-bittorrent\" length=\"big\"/>"_s
-            << qint64(-1);
+            << none;
         QTest::newRow("no length")
             << u"<enclosure url=\"http://x/a.torrent\" type=\"application/x-bittorrent\"/>"_s
-            << qint64(-1);
+            << none;
         QTest::newRow("negative length")
             << u"<enclosure url=\"http://x/a.torrent\" type=\"application/x-bittorrent\" length=\"-1\"/>"_s
-            << qint64(-1);
+            << none;
         QTest::newRow("negative length of an untyped enclosure")
             << u"<enclosure url=\"http://x/a.torrent\" length=\"-1\"/>"_s
-            << qint64(-1);
+            << none;
     }
 
     void testParserReadsEnclosureLength() const
     {
         QFETCH(const QString, itemBody);
-        QFETCH(const qint64, expected);
+        QFETCH(const QVariant, expected);
 
         const QVariantHash data = parseSingleItem(itemBody);
         QVERIFY(!data.isEmpty());
 
-        const QVariant size = data.value(RSS::Article::KeyTorrentSize);
-        QCOMPARE((size.isValid() ? size.toLongLong() : qint64(-1)), expected);
+        // The Web API's rss/items gives the article data under these names
+        const QVariant size = data.value(u"torrentSize"_s);
+        if (!expected.isValid())
+        {
+            QVERIFY(!size.isValid());
+            return;
+        }
+
+        QCOMPARE(size.toLongLong(), expected.toLongLong());
     }
 
     void testFilterUsesParsedEnclosureLength() const

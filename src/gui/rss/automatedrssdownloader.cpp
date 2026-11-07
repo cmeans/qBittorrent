@@ -111,8 +111,16 @@ namespace
                 return {.value = value, .unit = sizeUnit};
         }
 
+        // Over the maximum, such as 1010 MiB, the next unit is closer than the maximum
         const auto sizeUnit = static_cast<SizeUnit>(unit);
-        return {.value = std::min(roundedValue(sizeUnit), maximumSizeValue(sizeUnit)), .unit = sizeUnit};
+        const double value = roundedValue(sizeUnit);
+        if ((value > maximumSizeValue(sizeUnit)) && (unit < largestUnit))
+        {
+            const auto largerUnit = static_cast<SizeUnit>(unit + 1);
+            return {.value = roundedValue(largerUnit), .unit = largerUnit};
+        }
+
+        return {.value = std::min(value, maximumSizeValue(sizeUnit)), .unit = sizeUnit};
     }
 
     void showSize(QDoubleSpinBox *spinBox, QComboBox *comboBox, const qint64 bytes, const SizeUnit defaultUnit)

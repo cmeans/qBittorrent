@@ -673,6 +673,8 @@ void RSS::Private::Parser::parseRssArticle(QXmlStreamReader &xml)
         article[Article::KeyTorrentURL] = altTorrentUrl;
         if (altTorrentSize > 0)
             article[Article::KeyTorrentSize] = altTorrentSize;
+        else if (!altTorrentUrl.isEmpty())
+            article.remove(Article::KeyTorrentSize);
     }
 
     addArticle(article);

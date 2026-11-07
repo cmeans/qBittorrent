@@ -258,10 +258,10 @@
            <item row="3" column="0">
             <widget class="QLabel" name="lblMinSize">
              <property name="toolTip">
-              <string>Articles smaller than this size are filtered out, as are articles of unknown size. An article of exactly this size is kept. 0 for No Limit.</string>
+              <string>Articles smaller than this size are filtered out, as are articles of unknown size. An article of exactly this size is kept. 0 means no limit.</string>
              </property>
              <property name="text">
-              <string>Minimum Size (0 for No Limit):</string>
+              <string>Minimum Size:</string>
              </property>
             </widget>
            </item>
@@ -270,10 +270,10 @@
              <item>
               <widget class="QDoubleSpinBox" name="spinMinSize">
                <property name="toolTip">
-                <string>Articles smaller than this size are filtered out, as are articles of unknown size. An article of exactly this size is kept. 0 for No Limit.</string>
+                <string>Articles smaller than this size are filtered out, as are articles of unknown size. An article of exactly this size is kept. 0 means no limit.</string>
                </property>
                <property name="specialValueText">
-                <string>No Limit</string>
+                <string>∞</string>
                </property>
                <property name="maximum">
                 <double>1000.000000000000000</double>
@@ -315,10 +315,10 @@
            <item row="4" column="0">
             <widget class="QLabel" name="lblMaxSize">
              <property name="toolTip">
-              <string>Articles larger than this size are filtered out. Articles of unknown size aren't. An article of exactly this size is kept. 0 for No Limit.</string>
+              <string>Articles larger than this size are filtered out. Articles of unknown size aren't. An article of exactly this size is kept. 0 means no limit.</string>
              </property>
              <property name="text">
-              <string>Maximum Size (0 for No Limit):</string>
+              <string>Maximum Size:</string>
              </property>
             </widget>
            </item>
@@ -327,10 +327,10 @@
              <item>
               <widget class="QDoubleSpinBox" name="spinMaxSize">
                <property name="toolTip">
-                <string>Articles larger than this size are filtered out. Articles of unknown size aren't. An article of exactly this size is kept. 0 for No Limit.</string>
+                <string>Articles larger than this size are filtered out. Articles of unknown size aren't. An article of exactly this size is kept. 0 means no limit.</string>
                </property>
                <property name="specialValueText">
-                <string>No Limit</string>
+                <string>∞</string>
                </property>
                <property name="maximum">
                 <double>1000.000000000000000</double>
