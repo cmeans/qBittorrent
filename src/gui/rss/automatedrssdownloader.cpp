@@ -239,12 +239,12 @@ AutomatedRssDownloader::AutomatedRssDownloader(QWidget *parent)
     }
     for (auto *comboBox : {m_ui->comboMinSizeUnit, m_ui->comboMaxSizeUnit})
         comboBox->addItems(sizeUnits);
-    connect(m_ui->comboMinSizeUnit, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](const int index)
+    connect(m_ui->comboMinSizeUnit, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](const int index) -> void
     {
         m_ui->spinMinSize->setMaximum(maximumSizeValue(static_cast<SizeUnit>(index)));
         handleRuleDefinitionChanged();
     });
-    connect(m_ui->comboMaxSizeUnit, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](const int index)
+    connect(m_ui->comboMaxSizeUnit, qOverload<int>(&QComboBox::currentIndexChanged), this, [this](const int index) -> void
     {
         m_ui->spinMaxSize->setMaximum(maximumSizeValue(static_cast<SizeUnit>(index)));
         handleRuleDefinitionChanged();
