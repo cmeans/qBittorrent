@@ -110,7 +110,7 @@ namespace
         // Captures: number with thousands separators, or plain number, then the unit prefix
         // The spacing can be any Unicode space, &nbsp; or &thinsp;, the last two also as numeric references.
         // A range ("1-2 GiB") and a rate ("10 MB/s", "10 MB per second") aren't sizes.
-        static const QRegularExpression sizeRegex {uR"((?<![\w.,])(?<!\d[-\x{2013}])(?:(\d{1,3}(?:,\d{3})+(?:\.\d+)?)|(\d+(?:[.,]\d+)?))(?:[\s\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;)*([KMGTP])i?B\b(?!/s(?:ec(?:ond)?)?\b|[\s\p{Zs}]+per[\s\p{Zs}]+s(?:ec(?:ond)?)?\b))"_s
+        static const QRegularExpression sizeRegex {uR"((?<![\w.,])(?<!\d[-\x{2013}])(?:(\d{1,3}(?:,\d{3})+(?:\.\d+)?)|(\d+(?:[.,]\d+)?))(?:[\s\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;)*([KMGTP])i?B\b(?!/(?:s|sec|second)\b|[\s\p{Zs}]+per[\s\p{Zs}]+(?:s|sec|second)\b))"_s
             , QRegularExpression::CaseInsensitiveOption};
         // A link can contain something that looks like a size
         static const QRegularExpression htmlTagRegex {uR"(</?[a-zA-Z][^<>]*>)"_s};
