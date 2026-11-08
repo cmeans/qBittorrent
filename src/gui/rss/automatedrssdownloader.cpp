@@ -37,6 +37,7 @@
 #include <QCursor>
 #include <QDoubleSpinBox>
 #include <QFileDialog>
+#include <QLocale>
 #include <QMenu>
 #include <QMessageBox>
 #include <QRegularExpression>
@@ -515,47 +516,48 @@ qint64 AutomatedRssDownloader::editedMaxSize() const
     return editedSize(m_ui->spinMaxSize, m_ui->comboMaxSizeUnit, savedSize, DEFAULT_MAX_SIZE_UNIT);
 }
 
-QString AutomatedRssDownloader::sizeLimitsError() const
-{
-    // The fields accept the same value in every unit, so that changing the unit doesn't change the value
-    const auto fitsUnit = [](const QDoubleSpinBox *spinBox, const QComboBox *comboBox) -> bool
-    {
-        return (spinBox->value() <= maximumSizeValue(static_cast<SizeUnit>(comboBox->currentIndex())));
-    };
-    if (!fitsUnit(m_ui->spinMinSize, m_ui->comboMinSizeUnit) || !fitsUnit(m_ui->spinMaxSize, m_ui->comboMaxSizeUnit))
-        return tr("A size in EiB can be at most 7.99.");
-
-    const qint64 minSize = editedMinSize();
-    const qint64 maxSize = editedMaxSize();
-    if ((maxSize > 0) && (minSize > maxSize))
-        return tr("The minimum size can't be larger than the maximum size.");
-
-    return {};
-}
-
 void AutomatedRssDownloader::updateSizeLimitsValidity()
 {
-    const QString error = sizeLimitsError();
-    if (error.isEmpty())
+    // The fields accept the same value in every unit, so that changing the unit doesn't change the value
+    const auto unitError = [](const QDoubleSpinBox *spinBox, const QComboBox *comboBox) -> QString
     {
-        for (QDoubleSpinBox *spinBox : {m_ui->spinMinSize, m_ui->spinMaxSize})
-            spinBox->setStyleSheet({});
-        for (QLabel *label : {m_ui->labelMinSizeStat, m_ui->labelMaxSizeStat})
+        const auto unit = static_cast<SizeUnit>(comboBox->currentIndex());
+        if (spinBox->value() <= maximumSizeValue(unit))
+            return {};
+
+        return tr("A size in %1 can be at most %2.").arg(Utils::Misc::unitString(unit), QLocale().toString(maximumSizeValue(unit)));
+    };
+
+    // A size too large for its unit marks its own field, and a minimum above the maximum marks both
+    QString minSizeError = unitError(m_ui->spinMinSize, m_ui->comboMinSizeUnit);
+    QString maxSizeError = unitError(m_ui->spinMaxSize, m_ui->comboMaxSizeUnit);
+    if (minSizeError.isEmpty() && maxSizeError.isEmpty())
+    {
+        const qint64 maxSize = editedMaxSize();
+        if ((maxSize > 0) && (editedMinSize() > maxSize))
         {
+            minSizeError = tr("The minimum size can't be larger than the maximum size.");
+            maxSizeError = minSizeError;
+        }
+    }
+
+    const auto showError = [](QDoubleSpinBox *spinBox, QLabel *label, const QString &error) -> void
+    {
+        if (error.isEmpty())
+        {
+            spinBox->setStyleSheet({});
             label->setPixmap({});
             label->setToolTip({});
         }
-    }
-    else
-    {
-        for (QDoubleSpinBox *spinBox : {m_ui->spinMinSize, m_ui->spinMaxSize})
-            spinBox->setStyleSheet(u"QDoubleSpinBox { color: #ff0000; }"_s);
-        for (QLabel *label : {m_ui->labelMinSizeStat, m_ui->labelMaxSizeStat})
+        else
         {
+            spinBox->setStyleSheet(u"QDoubleSpinBox { color: #ff0000; }"_s);
             label->setPixmap(UIThemeManager::instance()->getIcon(u"dialog-warning"_s, u"task-attention"_s).pixmap(16, 16));
             label->setToolTip(error);
         }
-    }
+    };
+    showError(m_ui->spinMinSize, m_ui->labelMinSizeStat, minSizeError);
+    showError(m_ui->spinMaxSize, m_ui->labelMaxSizeStat, maxSizeError);
 }
 
 void AutomatedRssDownloader::onAddRuleBtnClicked()

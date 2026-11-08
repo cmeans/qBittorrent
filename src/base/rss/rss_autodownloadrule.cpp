@@ -107,6 +107,9 @@ namespace
     // sends it back as a JavaScript number, which a size close to the largest qint64 doesn't.
     const qint64 MAX_SIZE_LIMIT = 9211842821808707584;
 
+    // An enclosure length under 1 MiB may be the size of the .torrent file rather than of its contents
+    const qint64 TORRENT_FILE_SIZE_LIMIT = 1024 * 1024;
+
     // Reads a size written for humans, such as "1.7 GiB" or "1,024 MiB".
     // The text must contain one size, which it can repeat, since otherwise there is no telling which one is the torrent size.
     std::optional<qint64> sizeFromText(const QString &text)
@@ -119,8 +122,9 @@ namespace
             , QRegularExpression::CaseInsensitiveOption};
         // "1 234 MiB" could be one number or a number before a size ("Files: 3 700 MiB").
         // Reading only the last group could be off by a factor of 1000, so such a size is unknown.
+        // The groups can be separated by any Unicode space, an apostrophe or any character reference, such as &#8239;.
         // Each run of groups matches whole, with the unit captured if one follows, so a long run is checked in linear time.
-        static const QRegularExpression spaceGroupedSizeRegex {uR"((?<![\w.,])\d{1,3}(?:(?:[ '\x{2019}\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;|&#x2009;)\d{3})++(?:(?:[.,]\d+)?(?:[\s\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;|&#x2009;)*+([KMGTP])i?B\b)?)"_s
+        static const QRegularExpression spaceGroupedSizeRegex {uR"((?<![\w.,])\d{1,3}(?:(?:[ '\x{2019}\p{Zs}]|&#?\w+;)\d{3})++(?:(?:[.,]\d+)?(?:[\s\p{Zs}]|&nbsp;|&#160;|&#xA0;|&thinsp;|&#8201;|&#x2009;)*+([KMGTP])i?B\b)?)"_s
             , QRegularExpression::CaseInsensitiveOption};
         // A link can contain something that looks like a size
         static const QRegularExpression htmlTagRegex {uR"(</?[a-zA-Z][^<>]*>)"_s};
@@ -183,8 +187,12 @@ namespace
         if (elementSize)
             return elementSize;
 
-        // Some feeds give the size of the .torrent file as the enclosure length, which is normally smaller than its contents
+        // Some feeds give the size of the .torrent file as the enclosure length, which is normally smaller than its contents.
+        // A larger length is the torrent's own, which text written by the uploader can't override.
         const qint64 length = articleData.value(RSS::Article::KeyTorrentSize).toLongLong();
+        if (length >= TORRENT_FILE_SIZE_LIMIT)
+            return length;
+
         const qint64 textSize = sizeFromText(articleData.value(RSS::Article::KeyDescription).toString()).value_or(0);
 
         const qint64 size = std::max(length, textSize);

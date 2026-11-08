@@ -315,7 +315,7 @@
            <item row="4" column="0">
             <widget class="QLabel" name="lblMaxSize">
              <property name="toolTip">
-              <string>Articles larger than this size are filtered out. Articles of unknown size are kept. An article of exactly this size is kept. 0 for No Limit.</string>
+              <string>Articles larger than this size are filtered out. Articles of unknown size are kept unless a minimum size is set. An article of exactly this size is kept. 0 for No Limit.</string>
              </property>
              <property name="text">
               <string>Maximum Size (0 for No Limit):</string>
@@ -327,7 +327,7 @@
              <item>
               <widget class="QDoubleSpinBox" name="spinMaxSize">
                <property name="toolTip">
-                <string>Articles larger than this size are filtered out. Articles of unknown size are kept. An article of exactly this size is kept. 0 for No Limit.</string>
+                <string>Articles larger than this size are filtered out. Articles of unknown size are kept unless a minimum size is set. An article of exactly this size is kept. 0 for No Limit.</string>
                </property>
                <property name="specialValueText">
                 <string notr="true">0</string>

@@ -98,7 +98,6 @@ private:
     void saveEditedRule();
     qint64 editedMinSize() const;
     qint64 editedMaxSize() const;
-    QString sizeLimitsError() const;
     void loadFeedList();
     void updateFeedList();
     void addFeedArticlesToTree(RSS::Feed *feed, const QStringList &articles);

@@ -177,6 +177,7 @@ private slots:
         QTest::newRow("unknown size fails min and max") << qint64(1) << TWO_GIB << u"Movies / SD"_s << false;
         QTest::newRow("empty description fails min") << qint64(1) << qint64(0) << QString() << false;
         QTest::newRow("several sizes fail min") << qint64(1) << qint64(0) << u"1 GiB of 5 GiB"_s << false;
+        QTest::newRow("version number before a size") << qint64(1) << qint64(0) << u"v1.5 700 MiB"_s << true;
         QTest::newRow("Kelvin sign isn't a unit") << qint64(1) << qint64(0) << u"1 \u212AB"_s << false;
         QTest::newRow("two sizes far apart fail min") << TWO_GIB << qint64(0) << (u"3 GiB, 1"_s + u" "_s.repeated(30000) + u"GiB"_s) << false;
         QTest::newRow("size after a long run of spaces") << TWO_GIB << qint64(0) << (u"1"_s + u" "_s.repeated(30000) + u"x 3 GiB"_s) << true;
@@ -212,6 +213,18 @@ private slots:
         QTest::newRow("HTML thin space between thousands") << qint64(0) << qint64(1) << u"1&thinsp;234 MiB"_s << true;
         QTest::newRow("HTML numeric thin space between thousands") << qint64(0) << qint64(1) << u"1&#8201;234 MiB"_s << true;
         QTest::newRow("HTML hexadecimal thin space between thousands") << qint64(0) << qint64(1) << u"1&#x2009;234 MiB"_s << true;
+        QTest::newRow("HTML narrow no-break space between thousands") << qint64(0) << qint64(1) << u"1&#8239;234 MiB"_s << true;
+        QTest::newRow("HTML en space between thousands") << qint64(0) << qint64(1) << u"1&ensp;234 MiB"_s << true;
+        QTest::newRow("space-grouped size in MB") << qint64(0) << qint64(1) << u"1 234 MB"_s << true;
+        QTest::newRow("space-grouped size in lowercase") << qint64(0) << qint64(1) << u"1 234 mib"_s << true;
+        QTest::newRow("space-grouped size in PiB") << qint64(0) << qint64(1) << u"1 234 PiB"_s << true;
+        QTest::newRow("space-grouped size, tab before unit") << qint64(0) << qint64(1) << u"1 234\tMiB"_s << true;
+        QTest::newRow("space-grouped size, no-break space before unit") << qint64(0) << qint64(1) << u"1 234 MiB"_s << true;
+        QTest::newRow("space-grouped size, HTML no-break space before unit") << qint64(0) << qint64(1) << u"1 234&#160;MiB"_s << true;
+        QTest::newRow("space-grouped size with three digits first") << qint64(0) << qint64(1) << u"123 456 MiB"_s << true;
+        QTest::newRow("Indian digit grouping") << qint64(0) << qint64(1) << u"1,23,456 MiB"_s << true;
+        QTest::newRow("transfer rate per s") << qint64(0) << qint64(1) << u"Speed 10 MB per s"_s << true;
+        QTest::newRow("transfer rate per second, double spaces") << qint64(0) << qint64(1) << u"Speed 10 MB  per  second"_s << true;
         QTest::newRow("apostrophe between thousands") << qint64(0) << qint64(1) << u"1'234 MiB"_s << true;
         QTest::newRow("typographic apostrophe between thousands") << qint64(0) << qint64(1) << u"1\u2019234 MiB"_s << true;
         QTest::newRow("space between thousands with decimals") << qint64(0) << qint64(1) << u"1 234,5 MiB"_s << true;
@@ -249,7 +262,9 @@ private slots:
         const QVariant none;
         QTest::newRow("size element beats larger enclosure length") << QVariant(FIVE_GIB) << QVariant(u"1073741824"_s) << QString() << true;
         QTest::newRow("enclosure length larger than description") << QVariant(FIVE_GIB) << none << u"1 GiB"_s << false;
-        QTest::newRow("description larger than enclosure length") << QVariant(ONE_GIB) << none << u"5 GiB"_s << false;
+        QTest::newRow("enclosure length beats larger description") << QVariant(ONE_GIB) << none << u"5 GiB"_s << true;
+        QTest::newRow("description can't raise a small fake past the limit") << QVariant(ONE_MIB) << none << u"Size: 4.5 GiB"_s << true;
+        QTest::newRow("description beats an enclosure length under 1 MiB") << QVariant(ONE_MIB - 1) << none << u"5 GiB"_s << false;
         QTest::newRow("size element larger than enclosure length") << QVariant(ONE_GIB) << QVariant(u"5368709120"_s) << QString() << false;
         QTest::newRow("size element beats larger description") << none << QVariant(u"1073741824"_s) << u"Part of a 5 GiB collection"_s << true;
         QTest::newRow("all sources under limit") << QVariant(ONE_GIB) << QVariant(u"1073741824"_s) << u"1 GiB"_s << true;
@@ -294,6 +309,17 @@ private slots:
         const QByteArray stored = QJsonDocument(QJsonObject::fromVariantHash(data)).toJson();
 
         QVERIFY(!rule.matches(QJsonDocument::fromJson(stored).object().toVariantHash()));
+    }
+
+    void testSmallEnclosureLengthBeatsSmallerDescription() const
+    {
+        RSS::AutoDownloadRule rule {u"rule"_s};
+        rule.setMinSize(500 * 1024);
+
+        QVariantHash data = article(u"100 KiB"_s);
+        data[RSS::Article::KeyTorrentSize] = qint64(900 * 1024);
+
+        QVERIFY(rule.matches(data));
     }
 
     void testOtherFiltersStillApply() const
@@ -452,6 +478,17 @@ private slots:
         QTest::newRow("no length when a magnet link replaces the torrent URL")
             << u"<enclosure url=\"http://x/a.torrent\" type=\"application/x-bittorrent\" length=\"5368709120\"/>"
                 "<link>magnet:?xt=urn:btih:0123456789abcdef0123456789abcdef01234567</link>"_s
+            << none;
+        QTest::newRow("length of the untyped enclosure used instead of one without a URL")
+            << u"<enclosure url=\"\" type=\"application/x-bittorrent\" length=\"1073741824\"/>"
+                "<enclosure url=\"http://x/b.torrent\" length=\"5368709120\"/>"_s
+            << QVariant(FIVE_GIB);
+        QTest::newRow("no length for an untyped enclosure without a URL")
+            << u"<enclosure url=\"\" length=\"1073741824\"/>"_s
+            << none;
+        QTest::newRow("no length left over from the same torrent enclosure")
+            << u"<enclosure url=\"http://x/a.torrent\" type=\"application/x-bittorrent\" length=\"1073741824\"/>"
+                "<enclosure url=\"http://x/a.torrent\" type=\"application/x-bittorrent\"/>"_s
             << none;
         QTest::newRow("no length for a torrent enclosure without a URL")
             << u"<enclosure url=\"\" type=\"application/x-bittorrent\" length=\"5368709120\"/>"_s
