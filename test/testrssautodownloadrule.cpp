@@ -141,6 +141,8 @@ private slots:
         QTest::newRow("HTML thin space before unit") << qint64(0) << ONE_GIB << u"Size: 1.71&thinsp;GiB"_s << false;
         QTest::newRow("HTML numeric thin space before unit") << qint64(0) << ONE_GIB << u"Size: 1.71&#8201;GiB"_s << false;
         QTest::newRow("HTML hexadecimal thin space before unit") << qint64(0) << ONE_GIB << u"Size: 1.71&#x2009;GiB"_s << false;
+        QTest::newRow("HTML narrow no-break space before unit") << qint64(0) << ONE_GIB << u"Size: 1.71&#8239;GiB"_s << false;
+        QTest::newRow("HTML en space before unit") << qint64(0) << ONE_GIB << u"Size: 1.71&ensp;GiB"_s << false;
 
         // Similar to the unreadable text below, but these are sizes and must keep working
         QTest::newRow("slash right after unit") << qint64(0) << ONE_GIB << u"Movies / 1.7 GiB/SD"_s << false;
@@ -149,6 +151,8 @@ private slots:
         QTest::newRow("codec before size") << qint64(0) << (699 * ONE_MIB) << u"x264 700 MiB"_s << false;
         QTest::newRow("year before size") << qint64(0) << (699 * ONE_MIB) << u"2024 700 MiB"_s << false;
         QTest::newRow("short number before size") << qint64(0) << ONE_GIB << u"Season 2 5 GiB"_s << false;
+        QTest::newRow("two digits after a number aren't a group") << qint64(0) << ONE_GIB << u"Season 2 10 GiB"_s << false;
+        QTest::newRow("space-grouped rate before the size") << qint64(0) << TWO_GIB << u"Speed 1 234 MB/s, size 5 GiB"_s << false;
 
         // A size given more than once is still one size
         QTest::newRow("same size twice, over max") << qint64(0) << TWO_GIB << u"Size: 9 GiB, Files: 1 (9 GiB)"_s << false;
@@ -171,6 +175,7 @@ private slots:
         QTest::newRow("three digits in the previous table cell") << qint64(0) << (699 * ONE_MIB) << u"<td>123</td><td>700 MB</td>"_s << false;
         QTest::newRow("three digits before a tag aren't thousands") << qint64(0) << (699 * ONE_MIB) << u"Seeds: 123<br>700 MB"_s << false;
         QTest::newRow("unit in its own tag") << qint64(0) << TWO_GIB << u"<b>5</b> GiB"_s << false;
+        QTest::newRow("less-than sign before a tag") << qint64(0) << TWO_GIB << u"a<b 5 GiB<br>"_s << false;
 
         // An unknown size passes a maximum and fails a minimum, as in the search size filter
         QTest::newRow("unknown size fails min") << qint64(1) << qint64(0) << u"Movies / SD"_s << false;
@@ -179,9 +184,11 @@ private slots:
         QTest::newRow("several sizes fail min") << qint64(1) << qint64(0) << u"1 GiB of 5 GiB"_s << false;
         QTest::newRow("version number before a size") << qint64(1) << qint64(0) << u"v1.5 700 MiB"_s << true;
         QTest::newRow("Kelvin sign isn't a unit") << qint64(1) << qint64(0) << u"1 \u212AB"_s << false;
+        QTest::newRow("Kelvin sign before a size") << qint64(1) << qint64(0) << u"1 \u212AB, 5 GiB"_s << false;
         QTest::newRow("two sizes far apart fail min") << TWO_GIB << qint64(0) << (u"3 GiB, 1"_s + u" "_s.repeated(30000) + u"GiB"_s) << false;
         QTest::newRow("size after a long run of spaces") << TWO_GIB << qint64(0) << (u"1"_s + u" "_s.repeated(30000) + u"x 3 GiB"_s) << true;
         QTest::newRow("size after a long run of thousands") << TWO_GIB << qint64(0) << (u"1"_s + u",000"_s.repeated(100000) + u" x 3 GiB"_s) << true;
+        QTest::newRow("two sizes around a long run of digits fail min") << qint64(1) << qint64(0) << (u"700 MiB "_s + u"1"_s.repeated(3000000) + u" 5 GiB"_s) << false;
         QTest::newRow("no limits accept unknown size") << qint64(0) << qint64(0) << u"Movies / SD"_s << true;
 
         // The size is unknown in these, so the maximum (which they would otherwise fail) doesn't apply
@@ -197,6 +204,7 @@ private slots:
         QTest::newRow("transfer rate with second") << qint64(0) << qint64(1) << u"Speed 10 MB/second"_s << true;
         QTest::newRow("transfer rate per second") << qint64(0) << qint64(1) << u"Speed 10 MB per second"_s << true;
         QTest::newRow("transfer rate per sec") << qint64(0) << qint64(1) << u"Speed 10 MB per sec"_s << true;
+        QTest::newRow("transfer rate per s with HTML spaces") << qint64(0) << qint64(1) << u"Speed 10 MB&nbsp;per&nbsp;s"_s << true;
         QTest::newRow("size only in a link") << qint64(0) << qint64(1) << u"<a href=\"http://x/2GB-sample\">Sample</a>"_s << true;
         QTest::newRow("bits aren't bytes") << qint64(0) << qint64(1) << u"100 Mbit"_s << true;
         QTest::newRow("version number before unit") << qint64(0) << qint64(1) << u"1.2.3 GiB"_s << true;
@@ -217,10 +225,15 @@ private slots:
         QTest::newRow("HTML en space between thousands") << qint64(0) << qint64(1) << u"1&ensp;234 MiB"_s << true;
         QTest::newRow("space-grouped size in MB") << qint64(0) << qint64(1) << u"1 234 MB"_s << true;
         QTest::newRow("space-grouped size in lowercase") << qint64(0) << qint64(1) << u"1 234 mib"_s << true;
+        QTest::newRow("space-grouped size in KiB") << qint64(0) << qint64(1) << u"1 234 KiB"_s << true;
+        QTest::newRow("space-grouped size in GiB") << qint64(0) << qint64(1) << u"1 234 GiB"_s << true;
+        QTest::newRow("space-grouped size in TiB") << qint64(0) << qint64(1) << u"1 234 TiB"_s << true;
         QTest::newRow("space-grouped size in PiB") << qint64(0) << qint64(1) << u"1 234 PiB"_s << true;
         QTest::newRow("space-grouped size, tab before unit") << qint64(0) << qint64(1) << u"1 234\tMiB"_s << true;
-        QTest::newRow("space-grouped size, no-break space before unit") << qint64(0) << qint64(1) << u"1 234 MiB"_s << true;
+        QTest::newRow("space-grouped size, no-break space before unit") << qint64(0) << qint64(1) << u"1 234\u00A0MiB"_s << true;
         QTest::newRow("space-grouped size, HTML no-break space before unit") << qint64(0) << qint64(1) << u"1 234&#160;MiB"_s << true;
+        QTest::newRow("space-grouped size, HTML thin space before unit") << qint64(0) << qint64(1) << u"1 234&thinsp;MiB"_s << true;
+        QTest::newRow("space-grouped size, HTML hexadecimal thin space before unit") << qint64(0) << qint64(1) << u"1 234&#x2009;MiB"_s << true;
         QTest::newRow("space-grouped size with three digits first") << qint64(0) << qint64(1) << u"123 456 MiB"_s << true;
         QTest::newRow("Indian digit grouping") << qint64(0) << qint64(1) << u"1,23,456 MiB"_s << true;
         QTest::newRow("transfer rate per s") << qint64(0) << qint64(1) << u"Speed 10 MB per s"_s << true;
@@ -235,6 +248,8 @@ private slots:
         QTest::newRow("episode number before space-grouped size") << qint64(0) << qint64(1) << u"Episode 5 1 234 MiB"_s << true;
         QTest::newRow("short number before space-grouped size") << qint64(0) << qint64(1) << u"1 2 345 MiB"_s << true;
         QTest::newRow("codec before HTML space-grouped size") << qint64(0) << qint64(1) << u"x264 1&nbsp;234 MiB"_s << true;
+        QTest::newRow("space-grouped number before space-grouped size") << qint64(0) << qint64(1) << u"Seeds: 1 024, size: 1 234 MiB"_s << true;
+        QTest::newRow("space-grouped size before space-grouped number") << qint64(0) << qint64(1) << u"Size: 1 234 MiB, peers: 1 200"_s << true;
     }
 
     void testMatchesSizeFromDescription() const
@@ -270,9 +285,9 @@ private slots:
         QTest::newRow("all sources under limit") << QVariant(ONE_GIB) << QVariant(u"1073741824"_s) << u"1 GiB"_s << true;
         QTest::newRow(".torrent file size as enclosure length, real size in description") << QVariant(qint64(30720)) << none << u"5 GiB"_s << false;
         QTest::newRow(".torrent file size as enclosure length, real size in size element") << QVariant(qint64(30720)) << QVariant(u"5368709120"_s) << QString() << false;
-        QTest::newRow("enclosure length as the only size") << QVariant(qint64(30720)) << none << QString() << true;
         QTest::newRow("size element in bytes over limit") << none << QVariant(u"5368709120"_s) << u"1 GiB"_s << false;
         QTest::newRow("size element with unit") << none << QVariant(u"5 GiB"_s) << u"1 GiB"_s << false;
+        QTest::newRow("size element with spaces around it") << none << QVariant(u"\n  5368709120\n"_s) << u"1 GiB"_s << false;
         QTest::newRow("unreadable size element falls back") << none << QVariant(u"unknown"_s) << u"5 GiB"_s << false;
         QTest::newRow("zero size element falls back") << none << QVariant(u"0"_s) << u"5 GiB"_s << false;
         QTest::newRow("zero enclosure length falls back") << QVariant(qint64(0)) << none << u"5 GiB"_s << false;
@@ -318,6 +333,18 @@ private slots:
 
         QVariantHash data = article(u"100 KiB"_s);
         data[RSS::Article::KeyTorrentSize] = qint64(900 * 1024);
+
+        QVERIFY(rule.matches(data));
+    }
+
+    void testEnclosureLengthAsOnlySize() const
+    {
+        RSS::AutoDownloadRule rule {u"rule"_s};
+        rule.setMinSize(1024);
+
+        // Even the size of a .torrent file is a known size, so a minimum below it passes
+        QVariantHash data = article({});
+        data[RSS::Article::KeyTorrentSize] = qint64(30720);
 
         QVERIFY(rule.matches(data));
     }

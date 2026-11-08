@@ -54,11 +54,6 @@
         width: 100%;
     }
 
-    #minSizeValue,
-    #maxSizeValue {
-        width: 5em;
-    }
-
     .articleTableFeed td {
         font-weight: bold;
     }
@@ -79,7 +74,9 @@
         width: 100%;
     }
 
-    #ignoreDaysValue {
+    #ignoreDaysValue,
+    #minSizeValue,
+    #maxSizeValue {
         width: 5em;
     }
 
@@ -704,31 +701,31 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
         // 8 EiB doesn't fit in the stored size
         const maximumSizeValue = (unit) => ((unit === exbiByteUnit) ? 7.99 : 1000);
 
-        const sizeInBytes = (value, unit) => Math.trunc(value * (1024 ** unit));
+        const sizeInBytes = (value, unit) => Math.trunc(value * Math.pow(1024, unit));
 
         const sizeToShow = (bytes, defaultUnit) => {
             if (bytes <= 0)
                 return { value: 0, unit: defaultUnit };
 
-            let largestUnit = exbiByteUnit;
-            while ((largestUnit > 0) && (bytes < (1024 ** largestUnit)))
-                --largestUnit;
+            let unit = exbiByteUnit;
+            while ((unit > 0) && (bytes < Math.pow(1024, unit)))
+                --unit;
 
-            const roundedValue = (sizeUnit) => Number((bytes / (1024 ** sizeUnit)).toFixed(2));
+            const roundedValue = (sizeUnit) => Number((bytes / Math.pow(1024, sizeUnit)).toFixed(2));
 
             // A value under 1 can be the exact one, as in 0.99 GiB, which is too large to show in MiB
-            for (const candidate of [largestUnit, largestUnit + 1].filter((u) => u <= exbiByteUnit)) {
+            for (const candidate of [unit, unit + 1].filter((u) => u <= exbiByteUnit)) {
                 const rounded = roundedValue(candidate);
                 if ((rounded <= maximumSizeValue(candidate)) && (sizeInBytes(rounded, candidate) === bytes))
                     return { value: rounded, unit: candidate };
             }
 
-            // Over the maximum, such as 1010 MiB, the next unit is closer than the maximum
-            const value = roundedValue(largestUnit);
-            if ((value > maximumSizeValue(largestUnit)) && (largestUnit < exbiByteUnit))
-                return { value: roundedValue(largestUnit + 1), unit: largestUnit + 1 };
+            // Over the maximum, such as 1010 MiB, the next unit is shown, since the maximum would look like an exact value
+            const value = roundedValue(unit);
+            if ((value > maximumSizeValue(unit)) && (unit < exbiByteUnit))
+                return { value: roundedValue(unit + 1), unit: unit + 1 };
 
-            return { value: Math.min(value, maximumSizeValue(largestUnit)), unit: largestUnit };
+            return { value: Math.min(value, maximumSizeValue(unit)), unit: unit };
         };
 
         const isValidSizeValue = (prefix) => {

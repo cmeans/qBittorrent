@@ -112,7 +112,7 @@ namespace
                 return {.value = value, .unit = sizeUnit};
         }
 
-        // Over the maximum, such as 1010 MiB, the next unit is closer than the maximum
+        // Over the maximum, such as 1010 MiB, the next unit is shown, since the maximum would look like an exact value
         const auto sizeUnit = static_cast<SizeUnit>(unit);
         const double value = roundedValue(sizeUnit);
         if ((value > maximumSizeValue(sizeUnit)) && (unit < largestUnit))
