@@ -734,6 +734,30 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
             return input.validity.valid && (input.value !== "") && (Number(input.value) <= maximumSizeValue(unit));
         };
 
+        // For a value over the maximum, such as 1034.24 MiB, a message suggesting the same size in a larger unit, such as 1.01 GiB
+        const sizeSuggestion = (prefix) => {
+            const input = document.getElementById(`${prefix}SizeValue`);
+            const unitSelect = document.getElementById(`${prefix}SizeUnit`);
+            const unit = Number(unitSelect.value);
+            const value = Number(input.value);
+            if ((input.value === "") || input.validity.badInput || input.validity.stepMismatch || (value <= maximumSizeValue(unit)))
+                return null;
+
+            const bytes = sizeInBytes(value, unit);
+            if (bytes > sizeInBytes(maximumSizeValue(exbiByteUnit), exbiByteUnit))
+                return null;
+
+            const shown = sizeToShow(bytes, unit);
+            if ((shown.unit <= unit) || (shown.value > maximumSizeValue(shown.unit)))
+                return null;
+
+            const message = (sizeInBytes(shown.value, shown.unit) === bytes)
+                ? "QBT_TR(%1 %2 is over 1000. Enter it as %3 %4.)QBT_TR[CONTEXT=AutomatedRssDownloader]"
+                : "QBT_TR(%1 %2 is over 1000. Enter it as about %3 %4.)QBT_TR[CONTEXT=AutomatedRssDownloader]";
+            return message.replace("%1", value).replace("%2", unitSelect.options[unit].text)
+                .replace("%3", shown.value).replace("%4", unitSelect.options[shown.unit].text);
+        };
+
         const showSize = (prefix, bytes, defaultUnit) => {
             const shown = sizeToShow(bytes, defaultUnit);
             document.getElementById(`${prefix}SizeUnit`).value = shown.unit;
@@ -756,7 +780,7 @@ Supports the formats: S01E01, 1x1, 2017.12.31 and 31.12.2017 (Date formats also 
             const rule = rssDownloaderRulesTable.getRow(lastSelectedRow).full_data.name;
 
             if (!isValidSizeValue("min") || !isValidSizeValue("max")) {
-                alert("QBT_TR(Size limits must be numbers from 0 to 1000 (up to 7.99 for EiB), with at most two decimal places.)QBT_TR[CONTEXT=AutomatedRssDownloader]");
+                alert(sizeSuggestion("min") ?? sizeSuggestion("max") ?? "QBT_TR(Size limits must be numbers from 0 to 1000 (up to 7.99 for EiB), with at most two decimal places.)QBT_TR[CONTEXT=AutomatedRssDownloader]");
                 return;
             }
 
