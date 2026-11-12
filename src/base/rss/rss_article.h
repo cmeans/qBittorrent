@@ -55,6 +55,7 @@ namespace RSS
         static const QString KeyAuthor;
         static const QString KeyDescription;
         static const QString KeyTorrentURL;
+        static const QString KeyTorrentSize;
         static const QString KeyLink;
         static const QString KeyIsRead;
 

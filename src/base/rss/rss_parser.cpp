@@ -29,6 +29,8 @@
 
 #include "rss_parser.h"
 
+#include <optional>
+
 #include <QDebug>
 #include <QHash>
 #include <QRegularExpression>
@@ -604,6 +606,9 @@ void RSS::Private::Parser::parseRssArticle(QXmlStreamReader &xml)
 {
     QVariantHash article;
     QString altTorrentUrl;
+    qint64 altTorrentSize = 0;
+    // The URL of the enclosure whose length is the torrent size
+    std::optional<QString> torrentSizeUrl;
 
     while (!xml.atEnd())
     {
@@ -621,10 +626,26 @@ void RSS::Private::Parser::parseRssArticle(QXmlStreamReader &xml)
             }
             else if (name == u"enclosure")
             {
+                const qint64 length = xml.attributes().value(u"length"_s).toLongLong();
                 if (xml.attributes().value(u"type"_s) == u"application/x-bittorrent")
+                {
                     article[Article::KeyTorrentURL] = xml.attributes().value(u"url"_s).toString();
+                    if (length > 0)
+                    {
+                        article[Article::KeyTorrentSize] = length;
+                        torrentSizeUrl = article[Article::KeyTorrentURL].toString();
+                    }
+                    else
+                    {
+                        article.remove(Article::KeyTorrentSize);
+                        torrentSizeUrl.reset();
+                    }
+                }
                 else if (xml.attributes().value(u"type"_s).isEmpty())
+                {
                     altTorrentUrl = xml.attributes().value(u"url"_s).toString();
+                    altTorrentSize = length;
+                }
             }
             else if (name == u"link")
             {
@@ -658,7 +679,18 @@ void RSS::Private::Parser::parseRssArticle(QXmlStreamReader &xml)
     }
 
     if (article[Article::KeyTorrentURL].toString().isEmpty())
+    {
         article[Article::KeyTorrentURL] = altTorrentUrl;
+        if (altTorrentSize > 0)
+        {
+            article[Article::KeyTorrentSize] = altTorrentSize;
+            torrentSizeUrl = altTorrentUrl;
+        }
+    }
+
+    // A length is the torrent size only if its enclosure gives the torrent URL, which a magnet link can replace
+    if (torrentSizeUrl && (torrentSizeUrl->isEmpty() || (*torrentSizeUrl != article[Article::KeyTorrentURL].toString())))
+        article.remove(Article::KeyTorrentSize);
 
     addArticle(article);
 }

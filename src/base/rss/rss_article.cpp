@@ -44,6 +44,7 @@ const QString Article::KeyTitle = u"title"_s;
 const QString Article::KeyAuthor = u"author"_s;
 const QString Article::KeyDescription = u"description"_s;
 const QString Article::KeyTorrentURL = u"torrentURL"_s;
+const QString Article::KeyTorrentSize = u"torrentSize"_s;
 const QString Article::KeyLink = u"link"_s;
 const QString Article::KeyIsRead = u"isRead"_s;
 
