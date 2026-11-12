@@ -115,14 +115,14 @@ namespace
     std::optional<qint64> sizeFromText(const QString &text)
     {
         // Captures: number with thousands separators, or plain number, then the unit prefix
-        // The spacing can be any Unicode space or any character reference, such as &nbsp; or &#8239;.
+        // The spacing can be any space separator, ASCII white space or character reference, such as &nbsp; or &#8239;.
         // An unspaced range ("1-2 GiB") and a rate in the common forms ("10 MB/s", "10 MB per second") aren't sizes.
         // Repeats are possessive, since giving them back can't lead to a match, and long runs would otherwise reach the regex engine's limits.
         static const QRegularExpression sizeRegex {uR"((?<![\w.,])(?<!\d[-\x{2013}])(?:(\d{1,3}(?:,\d{3})++(?:\.\d++)?)|(\d++(?:[.,]\d++)?))(?:[\s\p{Zs}]|&#?\w++;)*+([KMGTP])i?B\b(?!/(?:s|sec|second)\b|(?:[\s\p{Zs}]|&#?\w++;)++per(?:[\s\p{Zs}]|&#?\w++;)++(?:s|sec|second)\b))"_s
             , QRegularExpression::CaseInsensitiveOption};
         // "1 234 MiB" could be one number or a number before a size ("Files: 3 700 MiB").
         // Reading only the last group could be off by a factor of 1000, so such a size is unknown.
-        // The groups can be separated by any Unicode space, an apostrophe or any character reference, such as &#8239;.
+        // The groups can be separated by any space separator, an apostrophe or any character reference, such as &#8239;.
         // Each run of groups matches whole, with the unit captured if one follows, so a long run is checked in linear time.
         // As above, a rate isn't a size.
         static const QRegularExpression spaceGroupedSizeRegex {uR"((?<![\w.,])\d{1,3}(?:(?:[ '\x{2019}\p{Zs}]|&#?\w++;)\d{3})++(?:(?:[.,]\d++)?(?:[\s\p{Zs}]|&#?\w++;)*+([KMGTP])i?B\b(?!/(?:s|sec|second)\b|(?:[\s\p{Zs}]|&#?\w++;)++per(?:[\s\p{Zs}]|&#?\w++;)++(?:s|sec|second)\b))?)"_s

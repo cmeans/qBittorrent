@@ -153,6 +153,7 @@ private slots:
         QTest::newRow("short number before size") << qint64(0) << ONE_GIB << u"Season 2 5 GiB"_s << false;
         QTest::newRow("two digits after a number aren't a group") << qint64(0) << ONE_GIB << u"Season 2 10 GiB"_s << false;
         QTest::newRow("space-grouped rate before the size") << qint64(0) << TWO_GIB << u"Speed 1 234 MB/s, size 5 GiB"_s << false;
+        QTest::newRow("space-grouped rate per s with HTML spaces before the size") << qint64(0) << TWO_GIB << u"1 234 MB&nbsp;per&nbsp;s, 5 GiB"_s << false;
 
         // A size given more than once is still one size
         QTest::newRow("same size twice, over max") << qint64(0) << TWO_GIB << u"Size: 9 GiB, Files: 1 (9 GiB)"_s << false;
@@ -234,6 +235,7 @@ private slots:
         QTest::newRow("space-grouped size, HTML no-break space before unit") << qint64(0) << qint64(1) << u"1 234&#160;MiB"_s << true;
         QTest::newRow("space-grouped size, HTML thin space before unit") << qint64(0) << qint64(1) << u"1 234&thinsp;MiB"_s << true;
         QTest::newRow("space-grouped size, HTML hexadecimal thin space before unit") << qint64(0) << qint64(1) << u"1 234&#x2009;MiB"_s << true;
+        QTest::newRow("space-grouped size, HTML narrow no-break space before unit") << qint64(0) << qint64(1) << u"1 234&#8239;MiB"_s << true;
         QTest::newRow("space-grouped size with three digits first") << qint64(0) << qint64(1) << u"123 456 MiB"_s << true;
         QTest::newRow("Indian digit grouping") << qint64(0) << qint64(1) << u"1,23,456 MiB"_s << true;
         QTest::newRow("transfer rate per s") << qint64(0) << qint64(1) << u"Speed 10 MB per s"_s << true;
